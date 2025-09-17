@@ -1,0 +1,39 @@
+# Core CrewAI Framework
+crewai>=0.55.0
+crewai-tools>=0.1.0
+
+# Vector Database and Embeddings
+chromadb>=0.4.0
+sentence-transformers>=2.2.2
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# AI and Language Models
+langchain>=0.1.0
+langchain-openai>=0.0.6
+langchain-community>=0.0.20
+openai>=1.0.0
+
+# Web Tools and APIs
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+urllib3>=2.0.0
+
+# Configuration and Environment
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+pyyaml>=6.0
+
+# Utilities
+hashlib3>=1.0.1
+uuid>=1.30
+
+# Optional: Web Search Integration
+# serper>=0.1.0  # Uncomment if you want web search
+
+# Optional: Advanced Features
+# streamlit>=1.28.0     # For web UI
+# fastapi>=0.104.0      # For API endpoints
+# gradio>=4.0.0         # For chat interface

@@ -1,0 +1,33 @@
+{
+  "faqs": {
+    "password_reset": {
+      "question": "How do I reset my password?",
+      "answer": "Click 'Forgot Password' on login page, enter your email, and follow the instructions sent to your email.",
+      "category": "account",
+      "tags": ["password", "login", "account", "reset"]
+    },
+    "billing_issue": {
+      "question": "Why was my card charged twice?",
+      "answer": "Double charges can occur due to authorization holds. These typically resolve within 24-48 hours. Contact support if it persists.",
+      "category": "billing", 
+      "tags": ["billing", "payment", "charge", "duplicate"]
+    },
+    "shipping_delay": {
+      "question": "My order is delayed, what should I do?",
+      "answer": "Check your tracking number first. If no updates for 48+ hours, contact our shipping team for investigation.",
+      "category": "shipping",
+      "tags": ["shipping", "delay", "tracking", "order"]
+    }
+  },
+  "procedures": {
+    "escalation": {
+      "title": "Issue Escalation Process",
+      "steps": [
+        "Attempt resolution with available tools and policies",
+        "If customer unsatisfied, escalate to supervisor", 
+        "Document issue details and attempted solutions",
+        "Supervisor review and additional action if needed"
+      ]
+    }
+  }
+}

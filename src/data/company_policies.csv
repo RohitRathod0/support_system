@@ -1,0 +1,6 @@
+policy_id,category,title,description,rules,authorization_level
+POL001,refund,Refund Policy,Standard refund procedures,"Customer can request refund within 30 days of purchase. Product must be unused and in original packaging.",agent
+POL002,billing,Late Payment,Late payment policy,"Grace period of 5 days. Late fee of $5 applied after grace period.",supervisor
+POL003,technical,Password Reset,Password reset procedure,"User must verify email and answer security questions. Reset link valid for 24 hours.",agent
+POL004,account,Account Suspension,Account suspension policy,"Account suspended after 3 failed login attempts. Contact support for reactivation.",supervisor
+POL005,shipping,Shipping Policy,Shipping and delivery terms,"Free shipping on orders over $50. Standard delivery 3-5 business days.",agent

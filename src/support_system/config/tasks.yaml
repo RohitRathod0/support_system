@@ -1,17 +1,282 @@
-research_task:
+# PHASE 1: TICKET CLASSIFICATION
+ticket_classification_task:
   description: >
-    Conduct a thorough research about {topic}
-    Make sure you find any interesting and relevant information given
-    the current year is {current_year}.
-  expected_output: >
-    A list with 10 bullet points of the most relevant information about {topic}
-  agent: researcher
+    Perform comprehensive analysis of the incoming customer query:
+    1. Classify urgency level (High, Medium, Low) based on keywords and context
+    2. Categorize the issue type (Technical, Billing, Account, Product, Other)
+    3. Analyze customer sentiment and emotional state
+    4. Extract key information and specific details mentioned
+    5. Assess complexity level and technical requirements
+    6. Identify any escalation triggers or special handling needs
 
-reporting_task:
-  description: >
-    Review the context you got and expand each topic into a full section for a report.
-    Make sure the report is detailed and contains any and all relevant information.
+    Customer Query: {topic}
+    User Context: {user_context}
+    Current Year: {current_year}
+
   expected_output: >
-    A fully fledged report with the main topics, each with a full section of information.
-    Formatted as markdown without '```'
-  agent: reporting_analyst
+    Comprehensive ticket analysis containing:
+    - Urgency Level: [High/Medium/Low with reasoning]
+    - Issue Category: [Technical/Billing/Account/Product/Other]
+    - Customer Sentiment: [Emotional state and tone analysis]
+    - Key Details: [Specific information and requirements extracted]
+    - Complexity Assessment: [Technical complexity and user skill level]
+    - Special Flags: [Escalation needs, VIP status, repeat issues]
+
+  agent: ticket_classifier
+
+# PHASE 2: SESSION MANAGEMENT
+manage_user_session:
+  description: >
+    Manage comprehensive user session context:
+    1. Load complete user profile and account information
+    2. Retrieve conversation history and previous interactions
+    3. Identify patterns in user's support requests and resolutions
+    4. Check for ongoing issues or previous unresolved queries
+    5. Set personalization context based on user preferences
+    6. Prepare session continuity for seamless support experience
+
+    Session ID: {session_id}
+    User ID: {user_id}
+    Current Timestamp: {timestamp}
+    User Context: {user_context}
+
+  expected_output: >
+    Complete session context report:
+    - User Profile: [Account details, preferences, interaction history]
+    - Conversation History: [Previous interactions and outcomes]
+    - Ongoing Issues: [Unresolved matters requiring follow-up]
+    - User Patterns: [Communication style, resolution preferences]
+    - Session Continuity: [Context for personalized interaction]
+    - Account Status: [Subscription, billing, any account flags]
+
+  agent: session_manager
+
+# PHASE 3: INTERNAL KNOWLEDGE RETRIEVAL
+kb_retrieval_task:
+  description: >
+    Search internal company knowledge base for relevant information:
+    1. Search FAQs, troubleshooting guides, and documentation
+    2. Find relevant procedures and step-by-step solutions
+    3. Retrieve similar past cases and their resolutions
+    4. Identify internal resources and tools available
+    5. Check for recent updates or changes to procedures
+    6. Assess completeness of internal knowledge for this query
+
+    Customer Query: {topic}
+    User Query: {user_query}
+    Current Year: {current_year}
+
+    Focus on finding comprehensive internal solutions first before
+    considering external sources.
+
+  expected_output: >
+    Internal knowledge retrieval report:
+    - Relevant FAQs: [Direct matches from knowledge base]
+    - Procedures: [Step-by-step internal procedures]
+    - Similar Cases: [Past cases and their successful resolutions]
+    - Resources: [Internal tools, links, documentation]
+    - Knowledge Gaps: [Areas where internal knowledge may be insufficient]
+    - Confidence Level: [How completely internal knowledge addresses query]
+
+  agent: kb_retriever
+
+# PHASE 4: POLICY RETRIEVAL
+retrieve_company_policies:
+  description: >
+    Retrieve and interpret relevant company policies:
+    1. Search CSV policy files and rulebooks for applicable policies
+    2. Identify authorization levels required for potential solutions
+    3. Check compliance requirements and restrictions
+    4. Find policy exceptions or special circumstances that apply
+    5. Determine what actions can be taken at current authorization level
+    6. Identify any policy conflicts or escalation requirements
+
+    Available Policies: {internal_policies}
+    Customer Query: {topic}
+    User Context: Consider user's subscription/account level
+
+  expected_output: >
+    Policy compliance report:
+    - Applicable Policies: [Specific policies that apply to this situation]
+    - Authorization Levels: [What can be done at agent/supervisor/manager level]
+    - Compliance Requirements: [Rules and restrictions that must be followed]
+    - Policy Exceptions: [Special circumstances or exceptions available]
+    - Escalation Needs: [When higher authorization is required]
+    - Risk Assessment: [Policy compliance risks and mitigation]
+
+  agent: policy_retriever
+
+# PHASE 5: WEB SEARCH COORDINATION
+coordinate_web_search:
+  description: >
+    Intelligently coordinate external information gathering when needed:
+    1. Assess if internal knowledge is sufficient or external search needed
+    2. Identify search triggers (technical issues, current status, updates)
+    3. Generate search queries for relevant external information
+    4. Perform searches using available tools and methods
+    5. Evaluate search result quality and relevance
+    6. Prepare external information for integration with internal knowledge
+
+    Customer Query: {topic}
+    User Query: {user_query}
+    Internal Knowledge Completeness: Assess if internal info is sufficient
+    Query Type: Technical, status, compatibility, current events
+    User Context: {user_context}
+
+  expected_output: >
+    External information coordination report:
+    - Search Decision: [Whether external search was needed and why]
+    - Search Strategy: [Type of searches and approach used]
+    - Search Results: [Relevant external information found]
+    - Source Quality: [Assessment of external source reliability]
+    - Integration Readiness: [How to combine with internal knowledge]
+    - Information Gaps: [What external info couldn't address]
+
+  agent: web_search_coordinator
+
+# PHASE 6: INFORMATION FUSION
+fuse_multi_source_information:
+  description: >
+    Combine and synthesize information from all sources:
+    1. Integrate internal knowledge base information
+    2. Incorporate relevant company policies and procedures
+    3. Blend in user conversation history and context
+    4. Seamlessly integrate external search results if available
+    5. Resolve conflicts between different information sources
+    6. Create unified, comprehensive understanding of the situation
+
+    Customer Query: {topic}
+    Internal Policies: {internal_policies}
+    User Context: {user_context}
+
+    Prioritize company policies while enhancing with external information.
+    Ensure all information is properly weighted and attributed.
+
+  expected_output: >
+    Comprehensive information synthesis:
+    - Integrated Knowledge: [All sources combined into coherent understanding]
+    - Source Attribution: [Clear indication of information sources]
+    - Conflict Resolution: [How discrepancies between sources were handled]
+    - Information Hierarchy: [Priority and reliability of different sources]
+    - Completeness Assessment: [Confidence in having complete information]
+    - Action Readiness: [Information organized for response generation]
+
+  agent: information_fusion_agent
+
+# PHASE 7: SOLUTION GENERATION
+solution_generation_task:
+  description: >
+    Create specific, actionable solutions for the customer:
+    1. Develop step-by-step solution procedures
+    2. Provide troubleshooting steps and diagnostic guidance
+    3. Offer alternative solutions and workarounds
+    4. Include policy-compliant actions and recommendations
+    5. Anticipate follow-up questions and provide preemptive answers
+    6. Ensure solutions match user's technical skill level
+
+    Customer Query: {topic}
+    User Query: {user_query}
+    Current Year: {current_year}
+
+    Base solutions on the comprehensive information synthesis while
+    ensuring all recommendations are actionable and appropriate.
+
+  expected_output: >
+    Detailed solution package:
+    - Primary Solution: [Main recommended solution with clear steps]
+    - Alternative Solutions: [Backup options and workarounds]
+    - Troubleshooting Steps: [Diagnostic procedures if needed]
+    - Prerequisites: [What user needs before starting solution]
+    - Success Indicators: [How to know if solution worked]
+    - Follow-up Actions: [Next steps and additional resources]
+
+  agent: solution_generator
+
+# PHASE 8: PERSONALIZED RESPONSE CREATION
+create_personalized_response:
+  description: >
+    Craft a personalized, conversational customer response:
+    1. Create personalized greeting acknowledging user and their history
+    2. Show empathy and understanding for their specific situation
+    3. Present solutions in conversational, easy-to-follow format
+    4. Match communication style to user's preferences and technical level
+    5. Include relevant policy information naturally in the response
+    6. Provide clear next steps and additional support options
+
+    Customer Query: {topic}
+    User Context: {user_context}
+    Session ID: {session_id}
+    User ID: {user_id}
+
+    Make the response feel like it comes from someone who knows this
+    customer and genuinely wants to help solve their specific problem.
+
+  expected_output: >
+    Complete personalized customer response:
+    - Personalized Opening: [Greeting that acknowledges user and context]
+    - Empathetic Acknowledgment: [Shows understanding of their situation]
+    - Clear Solutions: [Solutions presented conversationally]
+    - Policy Integration: [Company policies woven naturally into response]
+    - Next Steps: [Clear guidance for what to do next]
+    - Support Options: [Additional help and contact information]
+    - Closing: [Professional, supportive conclusion]
+
+  agent: dynamic_responder
+
+# PHASE 9: QUALITY ASSURANCE
+qa_review_task:
+  description: >
+    Comprehensive quality review of the customer response:
+    1. Verify factual accuracy of all information provided
+    2. Ensure complete policy compliance and authorization appropriateness
+    3. Check tone, empathy, and brand voice consistency
+    4. Confirm response completeness and addresses all user concerns
+    5. Validate that external information aligns with company policies
+    6. Assess customer satisfaction potential and identify improvements
+
+    Customer Query: {topic}
+    Current Year: {current_year}
+
+    Perform thorough review ensuring the response meets all quality
+    standards before delivery to the customer.
+
+  expected_output: >
+    Quality assurance report:
+    - Accuracy Check: [Verification of all factual information]
+    - Policy Compliance: [Confirmation of policy adherence]
+    - Tone Assessment: [Professional, empathetic, brand-appropriate]
+    - Completeness Review: [All customer concerns addressed]
+    - Integration Quality: [External and internal info properly combined]
+    - Final Recommendation: [Approve/Revise/Escalate with specific feedback]
+
+  agent: qa_agent
+
+# PHASE 10: DATA PERSISTENCE
+persist_interaction_data:
+  description: >
+    Store comprehensive interaction data for future reference:
+    1. Save complete conversation exchange in vector database
+    2. Update user profile with new information and preferences learned
+    3. Store successful solution patterns for similar future queries
+    4. Cache valuable search results for reuse
+    5. Update knowledge base with new insights if applicable
+    6. Flag any issues requiring follow-up or system improvements
+
+    User ID: {user_id}
+    Session ID: {session_id}
+    Customer Query: {topic}
+    Timestamp: {timestamp}
+
+    Ensure all interaction data contributes to continuous system
+    improvement and enhanced future personalization.
+
+  expected_output: >
+    Data persistence confirmation:
+    - Conversation Stored: [Complete interaction saved with metadata]
+    - Profile Updated: [User profile enhanced with new information]
+    - Pattern Recognition: [Solutions tagged for pattern matching]
+    - Knowledge Enhancement: [Valuable insights added to knowledge base]
+    - Follow-up Flags: [Any issues requiring tracking or escalation]
+    - Learning Data: [Information stored for system improvement]
+
+  agent: conversation_persister
