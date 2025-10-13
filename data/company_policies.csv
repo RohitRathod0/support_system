@@ -1,0 +1,9 @@
+policy_id,category,title,description,rules,authorization_level
+POL001,billing,Payment Processing Policy,Guidelines for handling customer payment issues,All payment disputes must be investigated within 24 hours. Refunds require manager approval for amounts over $100.,agent
+POL002,account,Account Access Policy,Procedures for account lockouts and password resets,Password resets require email verification. Account lockouts after 5 failed attempts require manual unlock.,agent
+POL003,technical,System Maintenance Policy,Guidelines for system maintenance and downtime,All maintenance must be scheduled during off-peak hours. Customers must be notified 48 hours in advance.,supervisor
+POL004,billing,Refund Policy,Customer refund eligibility and processing,Full refunds available within 30 days of purchase. Partial refunds may be offered for service issues.,manager
+POL005,account,Data Privacy Policy,Customer data handling and privacy protection,Customer data cannot be shared without explicit consent. All data access must be logged and audited.,agent
+POL006,general,Communication Policy,Standards for customer service interactions,All communications must be professional and helpful. Response time should not exceed 24 hours.,agent
+POL007,technical,Security Policy,Information security and access controls,All systems require multi-factor authentication. Security incidents must be reported immediately.,supervisor
+POL008,billing,Subscription Policy,Guidelines for subscription management,Subscription changes take effect at next billing cycle. Cancellations require 30-day notice.,agent
