@@ -205,6 +205,7 @@ Using vector databases for semantic search
 Designing modular AI workflows
 
 This project strengthened my understanding of agentic AI design patterns and production-style project structuring.
+
 ⚙️ Development Process
 
 Researched multi-agent frameworks
@@ -224,6 +225,7 @@ Tested agent collaboration
 Tuned prompts and tasks
 
 Added output generation
+
 🔁 System Workflow (Step-by-Step)
 
 User provides input
