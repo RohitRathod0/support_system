@@ -10,7 +10,7 @@ import os
 import sys
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
 
 from dotenv import load_dotenv
 load_dotenv()

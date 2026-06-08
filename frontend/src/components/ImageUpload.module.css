@@ -1,0 +1,59 @@
+.dropzone {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1.5px dashed rgba(255,255,255,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+.dropzone:hover { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,0.08); }
+.dragOver  { border-color: var(--accent); background: rgba(99,102,241,0.12); color: var(--accent); }
+.disabled  { opacity: 0.4; cursor: not-allowed; }
+
+.preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(99,102,241,0.08);
+  border: 1px solid rgba(99,102,241,0.25);
+  border-radius: 10px;
+}
+.previewImg {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.previewLabel { font-size: 12px; color: var(--text-2); }
+.clearBtn {
+  position: absolute;
+  top: -6px; right: -6px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--danger);
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.uploadingOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 11px;
+  color: white;
+}

@@ -1,0 +1,119 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+}
+.panel::-webkit-scrollbar { width: 3px; }
+.panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #475569;
+  margin-bottom: 4px;
+}
+.titleDot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+.nodes { display: flex; flex-direction: column; }
+
+.node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid #2d2d3a;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, background-color 0.3s;
+}
+.parallel { border-left: 3px solid #3b82f6; }
+
+.nodeIcon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
+.nodeInfo { flex: 1; min-width: 0; }
+.nodeName  { font-size: 11px; font-weight: 600; color: #f1f5f9; }
+.nodeStatus{ font-size: 10px; color: #475569; margin-top: 1px; }
+
+.badges { display: flex; gap: 4px; flex-shrink: 0; }
+.badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 8px;
+  letter-spacing: 0.3px;
+}
+
+.runningBar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  transform-origin: left;
+}
+
+.connector {
+  width: 2px;
+  height: 6px;
+  margin: 0 0 0 20px;
+  border-radius: 2px;
+  transition: background 0.3s;
+}
+
+/* FCR Card */
+.fcrCard {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+  margin-top: 4px;
+}
+.fcrTitle { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #475569; margin-bottom: 6px; }
+.fcrScore {
+  font-size: 38px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #6366f1, #10b981);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1;
+}
+.fcrVerdict {
+  margin-top: 6px;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.verdictGreen  { background: rgba(16,185,129,0.15); color: #10b981; }
+.verdictYellow { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.verdictRed    { background: rgba(239,68,68,0.15);  color: #ef4444; }
+.fcrNote { font-size: 11px; color: #475569; margin-top: 6px; line-height: 1.4; }
+
+/* Timings */
+.timings {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 12px;
+}
+.timingsTitle { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #475569; margin-bottom: 8px; }
+.timingRow { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.timingRow:last-child { border-bottom: none; }
+.timingNode { font-size: 11px; color: #6366f1; text-transform: capitalize; }
+.timingVal  { font-size: 11px; font-family: monospace; color: #10b981; }

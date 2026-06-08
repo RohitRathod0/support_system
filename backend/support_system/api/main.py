@@ -10,12 +10,15 @@ Features:
 """
 from __future__ import annotations
 
+import base64
 import logging
 import os
+import shutil
+import uuid
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -33,10 +36,14 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Starting Customer Support System v2 (LangGraph)")
 
     # ── Paths ────────────────────────────────────────────────────────────────
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    src_dir  = os.path.abspath(os.path.join(base_dir, ".."))
-    data_dir = os.path.join(src_dir, "..", "..", "data")
-    vdb_dir  = os.path.join(src_dir, "..", "..", "vector_db")
+    base_dir    = os.path.dirname(os.path.abspath(__file__))
+    src_dir     = os.path.abspath(os.path.join(base_dir, ".."))
+    root_dir    = os.path.abspath(os.path.join(src_dir, "..", ".."))
+    data_dir    = os.path.join(root_dir, "data")
+    vdb_dir     = os.path.join(root_dir, "vector_db")
+    uploads_dir = os.path.join(root_dir, "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+    app.state.uploads_dir = uploads_dir
 
     # ── Cache (Redis) ────────────────────────────────────────────────────────
     from ..services.cache_service import CacheService
@@ -147,10 +154,46 @@ app.include_router(chat_router)
 app.include_router(analytics_router)
 app.include_router(sessions_router)
 
-# ─── Serve frontend static files ─────────────────────────────────────────────
-_frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
-if os.path.exists(_frontend_dir):
-    app.mount("/app", StaticFiles(directory=_frontend_dir, html=True), name="frontend")
+# ─── Serve uploaded images ───────────────────────────────────────────────────
+_uploads_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "uploads")
+os.makedirs(_uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
+
+# ─── Image Upload Endpoint ────────────────────────────────────────────────────
+@app.post("/chat/upload-image", tags=["chat"])
+async def upload_complaint_image(file: UploadFile = File(...)):
+    """
+    Upload a product image with a complaint.
+    Returns the stored URL + base64 for LLM vision context.
+    """
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+    if file.content_type not in allowed:
+        return JSONResponse(status_code=400, content={"error": f"File type {file.content_type} not allowed. Use JPEG, PNG, or WebP."})
+
+    ext      = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "jpg"
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    save_path = os.path.join(_uploads_dir, filename)
+
+    with open(save_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    # Read back as base64 for LLM vision context
+    with open(save_path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
+
+    return {
+        "filename": filename,
+        "url": f"/uploads/{filename}",
+        "content_type": file.content_type,
+        "base64_preview": f"data:{file.content_type};base64,{b64[:100]}...",  # truncated for API
+        "full_base64": b64,  # used by agent for vision context
+        "size_bytes": os.path.getsize(save_path),
+    }
+
+# ─── Serve React frontend build ───────────────────────────────────────────────
+_react_build = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "dist")
+if os.path.exists(_react_build):
+    app.mount("/app", StaticFiles(directory=_react_build, html=True), name="frontend")
 
 # ─── Root endpoint ────────────────────────────────────────────────────────────
 @app.get("/", include_in_schema=False)

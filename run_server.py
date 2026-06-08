@@ -59,10 +59,8 @@ def main():
 
     import uvicorn
 
-    # Add src/ to path
-    src_path = os.path.join(os.path.dirname(__file__), "src")
-    if src_path not in sys.path:
-        sys.path.insert(0, src_path)
+    # Add backend/ to path
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
 
     uvicorn.run(
         "support_system.api.main:app",
