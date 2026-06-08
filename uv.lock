@@ -1600,6 +1600,22 @@ wheels = [
 ]
 
 [[package]]
+name = "langchain-mistralai"
+version = "1.1.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "httpx-sse" },
+    { name = "langchain-core" },
+    { name = "pydantic" },
+    { name = "tokenizers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c9/c3/ca9538a9d2f4ceedccb084802c83647371cae21ad4e6095ee2c7b793cdce/langchain_mistralai-1.1.4.tar.gz", hash = "sha256:af1815c7b70051afb93c091c1c3b49cc680cf756dc5feb77344f9e73201660c1", size = 132673, upload-time = "2026-05-05T15:29:02.397Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/04/6b/23d26a9584d78c1d53891178aab37c6b2e25ff360231beca80f3a90120de/langchain_mistralai-1.1.4-py3-none-any.whl", hash = "sha256:1d9c2c27a83b3d4020cdc3a81fa5b021200054a984a4c8e8fa30c2f802f781b6", size = 21113, upload-time = "2026-05-05T15:29:00.839Z" },
+]
+
+[[package]]
 name = "langchain-openai"
 version = "1.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4335,6 +4351,7 @@ dependencies = [
     { name = "crewai", extra = ["tools"] },
     { name = "langchain" },
     { name = "langchain-community" },
+    { name = "langchain-mistralai" },
     { name = "langchain-openai" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -4358,6 +4375,7 @@ requires-dist = [
     { name = "crewai", extras = ["tools"], specifier = ">=0.134.0,<1.0.0" },
     { name = "langchain", specifier = ">=0.1.0" },
     { name = "langchain-community", specifier = ">=0.0.20" },
+    { name = "langchain-mistralai", specifier = ">=0.1.0" },
     { name = "langchain-openai", specifier = ">=0.0.6" },
     { name = "numpy", specifier = ">=1.24.0" },
     { name = "openai", specifier = ">=1.0.0" },

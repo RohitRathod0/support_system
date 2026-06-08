@@ -1,4 +1,4 @@
-from crewai import Agent, Crew, Process, Task
+from crewai import Agent, Crew, Process, Task, LLM
 from typing import List, Dict, Any, Optional
 import json
 import os
@@ -12,13 +12,19 @@ import time
 # Suppress warnings
 warnings.filterwarnings("ignore")
 
+# Mistral LLM via LiteLLM (reads MISTRAL_API_KEY from env)
+mistral_llm = LLM(
+    model="mistral/mistral-large-latest",
+    api_key=os.getenv("MISTRAL_API_KEY")
+)
+
 class SimpleVectorStore:
     """Simple vector store with robust error handling"""
     
     def __init__(self):
         self.conversations = []
         self.policies = []
-        print("✅ Simple vector store initialized")
+        print("[OK] Simple vector store initialized")
     
     def store_conversation(self, user_id: str, query: str, response: str, metadata: Dict = None):
         """Store conversation with fallback"""
@@ -31,7 +37,7 @@ class SimpleVectorStore:
                 "metadata": metadata or {}
             })
         except Exception as e:
-            print(f"⚠️  Conversation storage failed: {e}")
+            print(f"[WARN] Conversation storage failed: {e}")
     
     def search_knowledge_base(self, query: str, n_results: int = 3) -> List[Dict]:
         """Simple knowledge search"""
@@ -90,13 +96,13 @@ class SimplePolicyManager:
                     }
                 
                 total_policies += len(df)
-                print(f"📄 Loaded {len(df)} policies from {file}")
+                print(f"[INFO] Loaded {len(df)} policies from {file}")
                 
             except Exception as e:
-                print(f"⚠️  Error loading {file}: {e}")
+                print(f"[WARN] Error loading {file}: {e}")
         
         if total_policies > 0:
-            print(f"🎯 Total policies loaded: {total_policies}")
+            print(f"[INFO] Total policies loaded: {total_policies}")
         
     def _create_sample_policies(self):
         """Create comprehensive sample policies"""
@@ -113,7 +119,7 @@ POL008,general,Escalation Guidelines,When to escalate issues,Escalate angry cust
         
         with open("./data/company_policies.csv", 'w') as f:
             f.write(sample_data)
-        print("📝 Created sample policy data")
+        print("[INFO] Created sample policy data")
     
     def search_policies(self, query: str, n_results: int = 3) -> List[Dict]:
         """Search policies with keyword matching"""
@@ -143,7 +149,7 @@ class SupportSystem:
     """Working Customer Support System without CrewBase decorator"""
     
     def __init__(self):
-        print("🚀 Initializing Customer Support System...")
+        print("[*] Initializing Customer Support System...")
         
         # Initialize components
         self.vector_store = SimpleVectorStore()
@@ -157,8 +163,8 @@ class SupportSystem:
         self._create_tasks()
         self._create_crew()
         
-        print("✅ SupportSystem initialized successfully")
-        print(f"📊 Loaded {len(self.policy_manager.policies)} policies")
+        print("[OK] SupportSystem initialized successfully")
+        print(f"[INFO] Loaded {len(self.policy_manager.policies)} policies")
     
     def _initialize_configs(self):
         """Initialize configurations with bulletproof error handling"""
@@ -203,7 +209,7 @@ class SupportSystem:
         # Try to load YAML configs if available (but don't fail if they're not)
         self._try_load_yaml_configs()
         
-        print("✅ Configurations initialized")
+        print("[OK] Configurations initialized")
     
     def _try_load_yaml_configs(self):
         """Try to load YAML configs, but don't fail if unavailable"""
@@ -243,14 +249,14 @@ class SupportSystem:
                                     if value and isinstance(value, dict):
                                         self.tasks_config[key] = value
                     
-                    print(f"✅ Enhanced with configurations from {config_dir}")
+                    print(f"[OK] Enhanced with configurations from {config_dir}")
                     return
                     
                 except Exception as e:
-                    print(f"⚠️  Could not load YAML from {config_dir}: {e}")
+                    print(f"[WARN] Could not load YAML from {config_dir}: {e}")
                     continue
         
-        print("📝 Using default configurations")
+        print("[INFO] Using default configurations")
     
     def _create_agents(self):
         """Create agents manually without decorators"""
@@ -259,6 +265,7 @@ class SupportSystem:
             role=self.agents_config['support_agent']['role'],
             goal=self.agents_config['support_agent']['goal'],
             backstory=self.agents_config['support_agent']['backstory'],
+            llm=mistral_llm,
             verbose=True
         )
         
@@ -266,6 +273,7 @@ class SupportSystem:
             role=self.agents_config['policy_agent']['role'],
             goal=self.agents_config['policy_agent']['goal'],
             backstory=self.agents_config['policy_agent']['backstory'],
+            llm=mistral_llm,
             verbose=True
         )
         
@@ -273,6 +281,7 @@ class SupportSystem:
             role=self.agents_config['qa_agent']['role'],
             goal=self.agents_config['qa_agent']['goal'],
             backstory=self.agents_config['qa_agent']['backstory'],
+            llm=mistral_llm,
             verbose=True
         )
     
