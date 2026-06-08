@@ -44,17 +44,17 @@ def main():
     args = parser.parse_args()
 
     print("=" * 60)
-    print("  🤖 Customer Support System v2 — LangGraph Edition")
-    print("  ⚡ Parallel agents · Redis cache · ChromaDB RAG")
+    print("  Customer Support System v2 -- LangGraph Edition")
+    print("  Parallel agents | Redis cache | ChromaDB RAG")
     print("=" * 60)
 
     check_env()
 
-    print(f"\n🚀 Starting server on http://{args.host}:{args.port}")
-    print(f"   📖 API docs:  http://localhost:{args.port}/docs")
-    print(f"   🖥️  Frontend:  http://localhost:{args.port}/app")
-    print(f"   ❤️  Health:    http://localhost:{args.port}/health")
-    print(f"   📊 Traces:    http://localhost:{args.port}/analytics/traces")
+    print(f"\nStarting server on http://{args.host}:{args.port}")
+    print(f"  API docs:  http://localhost:{args.port}/docs")
+    print(f"  Frontend:  http://localhost:{args.port}/app")
+    print(f"  Health:    http://localhost:{args.port}/health")
+    print(f"  Traces:    http://localhost:{args.port}/analytics/traces")
     print()
 
     import uvicorn

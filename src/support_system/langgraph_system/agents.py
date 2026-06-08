@@ -306,32 +306,40 @@ def fuse_information_node(state: SupportState) -> Dict[str, Any]:
     )
     web_text = "\n".join(r.get("content", "")[:300] for r in web[:2])
 
-    system = """You are an Information Integration Specialist. Merge all sources into a coherent package.
+    system = """You are an Information Integration Specialist. Your job is to merge all sources
+into a structured, policy-bound knowledge package for the response agent.
+
+CRITICAL: Policy constraints are HARD LIMITS — the solution agent CANNOT go beyond them.
+
 Return JSON:
 {
-  "primary_information": "most relevant synthesized content",
-  "policy_constraints": "what policies allow/restrict",
-  "additional_context": "supporting details",
+  "primary_information": "most relevant synthesized content from KB",
+  "hard_policy_constraints": "explicit list of what the agent CANNOT do (refund limits, auth limits, SLA limits)",
+  "what_agent_can_offer": "what the agent IS authorised to offer within policy",
+  "policy_constraints": "full policy rules that apply",
+  "additional_context": "supporting details from web/external",
   "knowledge_gaps": ["gap1", "gap2"],
   "information_quality": 0.85,
-  "solution_approach": "recommended approach",
-  "conflict_notes": "any conflicts resolved"
+  "solution_approach": "recommended approach WITHIN policy",
+  "escalation_required": false,
+  "escalation_reason": "why escalation is needed if true"
 }
 Return ONLY valid JSON."""
 
     human = f"""Customer Query: {state['customer_query']}
 Classification: urgency={state.get('urgency_level')}, category={state.get('issue_category')}
 
-KB Results:
+KB Results (what we know):
 {kb_text or 'None found'}
 
-Applicable Policies:
-{policy_text or 'No specific policies found'}
+APPLICABLE COMPANY POLICIES (these are HARD LIMITS — cannot be exceeded):
+{policy_text or 'Standard policies apply'}
 
 External Information:
 {web_text or 'No external data'}
 
 Customer Profile: {json.dumps(session)}"""
+
 
     raw = _call_llm(system, human)
     try:
@@ -364,29 +372,55 @@ def generate_solution_node(state: SupportState) -> Dict[str, Any]:
     """
     Maps to: solution_generator agent
     Task:    solution_generation_task
+    POLICY ENFORCEMENT: solution MUST stay within retrieved policy limits.
     """
     start = time.time()
     fused = state.get("fused_information", {})
+    policy_results = state.get("policy_results", [])
     attempts = state.get("qa_attempts", 0)
+
+    # Build a strict policy constraint block from retrieved policies
+    policy_constraints = []
+    for p in policy_results[:5]:
+        rules = p.get("rules") or p.get("content", "")
+        title = p.get("title", "Policy")
+        auth  = p.get("authorization_level", "agent")
+        if rules:
+            policy_constraints.append(f"[{title} | auth={auth}]: {rules}")
+
+    policy_block = "\n".join(policy_constraints) if policy_constraints else "Standard company policies apply."
 
     retry_note = ""
     if attempts > 0:
         qa_result = state.get("qa_result", {})
         retry_note = f"\n⚠️ RETRY #{attempts}: Previous QA score was {state.get('qa_score', 0)}/10. Issues: {qa_result.get('improvement_notes', 'improve completeness and accuracy.')}"
 
-    system = f"""You are a Solution Development and Technical Resolution Specialist.
-Create a comprehensive solution based on the integrated knowledge.
+    system = f"""You are a Solution Development Specialist. Generate a solution that STRICTLY follows company policies.
+
+CRITICAL POLICY CONSTRAINTS — YOU CANNOT EXCEED THESE:
+{policy_block}
+
+MANDATORY RULES:
+- NEVER promise a refund beyond what the policy allows (e.g. if policy says 30 days, do NOT offer refunds after 30 days)
+- NEVER approve amounts beyond the agent authorization level
+- NEVER make commitments that require supervisor/manager approval without flagging the need for escalation
+- If the customer's request exceeds policy limits, clearly but empathetically explain the policy boundary
+- Always tell the customer what CAN be done within policy, not just what cannot
+- If escalation is required by policy, include that as a step
+
 Return JSON:
 {{
   "solution_overview": "high-level summary",
   "primary_steps": ["step 1", "step 2", "step 3"],
   "prerequisites": ["what customer needs before starting"],
   "expected_outcome": "what success looks like",
-  "alternative_approaches": ["alternative 1", "alternative 2"],
+  "alternative_approaches": ["alternative 1"],
   "risk_warnings": ["warning 1"],
   "verification_steps": ["how to confirm it worked"],
   "escalation_trigger": "when to escalate if this fails",
-  "estimated_time": "5-10 minutes"
+  "estimated_time": "5-10 minutes",
+  "policy_boundaries_applied": ["policy limit 1 applied", "policy limit 2 applied"],
+  "within_agent_authority": true
 }}
 Return ONLY valid JSON.{retry_note}"""
 
@@ -394,7 +428,7 @@ Return ONLY valid JSON.{retry_note}"""
 Urgency: {state.get('urgency_level')} | Category: {state.get('issue_category')} | Complexity: {state.get('complexity')}
 
 Integrated Knowledge:
-{json.dumps(fused, indent=2)[:1500]}
+{json.dumps(fused, indent=2)[:1200]}
 
 Customer Expertise: {state.get('personalization', {}).get('expertise', 'Intermediate')}"""
 
@@ -405,17 +439,19 @@ Customer Expertise: {state.get('personalization', {}).get('expertise', 'Intermed
         solution = {
             "solution_overview": f"Resolution for: {state['customer_query'][:80]}",
             "primary_steps": [
-                "1. Verify the reported issue",
-                "2. Apply the recommended fix",
-                "3. Confirm resolution",
+                "1. Verify the reported issue against our records",
+                "2. Apply resolution within applicable policy limits",
+                "3. Confirm resolution with customer",
             ],
-            "prerequisites": ["Access to your account"],
-            "expected_outcome": "Issue resolved",
+            "prerequisites": ["Account verification required"],
+            "expected_outcome": "Issue resolved within policy guidelines",
             "alternative_approaches": [],
-            "risk_warnings": [],
+            "risk_warnings": ["Resolution subject to applicable company policies"],
             "verification_steps": ["Confirm the issue is resolved"],
-            "escalation_trigger": "If issue persists after 3 attempts",
+            "escalation_trigger": "If request exceeds agent authorization level",
             "estimated_time": "10-15 minutes",
+            "policy_boundaries_applied": ["Standard policies applied"],
+            "within_agent_authority": True,
         }
 
     timings = dict(state.get("node_timings") or {})
@@ -496,26 +532,50 @@ def qa_review_node(state: SupportState) -> Dict[str, Any]:
     Maps to: qa_agent
     Task:    qa_review_task
     Score < 7 → retry generate_solution (max 2 times)
+    KEY CHECK: Did the response stay within policy boundaries?
     """
     start = time.time()
-    response = state.get("personalized_response", "")
-    query = state["customer_query"]
-    attempts = state.get("qa_attempts", 0)
+    response   = state.get("personalized_response", "")
+    query      = state["customer_query"]
+    attempts   = state.get("qa_attempts", 0)
+    solution   = state.get("solution_package", {})
+    policy_results = state.get("policy_results", [])
 
-    system = """You are a Quality Assurance and Compliance Review Specialist.
-Review the customer response critically.
+    # Build policy summary for QA
+    policy_summary = "\n".join(
+        f"- [{p.get('title','Policy')}]: {p.get('rules', p.get('content',''))[:200]}"
+        for p in policy_results[:4]
+    ) or "Standard policies apply."
+
+    system = f"""You are a Quality Assurance and Policy Compliance Specialist.
+Your PRIMARY job: verify the response did NOT promise or offer anything beyond company policy.
+
+APPLICABLE POLICIES:
+{policy_summary}
+
+REVIEW CRITERIA:
+1. POLICY COMPLIANCE (most critical): Did the response stay strictly within policy limits?
+   - No refund promised beyond allowed period?
+   - No amount promised beyond agent authority?
+   - No commitments requiring manager/supervisor without flagging escalation?
+2. ACCURACY: Is information factually correct?
+3. COMPLETENESS: Are all customer needs addressed?
+4. TONE: Professional, empathetic, not robotic?
+5. ACTIONABILITY: Are steps clear and executable?
+
 Return JSON:
-{
+{{
   "overall_score": 8,
   "accuracy_score": 8,
   "completeness_score": 9,
   "tone_score": 8,
   "policy_compliance": true,
-  "approval_status": "Approved|NeedsRevision|Escalate",
+  "policy_violations": ["list any promises that exceed policy — empty if none"],
+  "approval_status": "Approved|NeedsRevision|PolicyViolation|Escalate",
   "improvement_notes": "specific improvements if score < 7",
   "strengths": ["what works well"],
   "critical_issues": ["must fix items"]
-}
+}}
 Return ONLY valid JSON."""
 
     human = f"""Original Query: {query}
@@ -523,7 +583,9 @@ Return ONLY valid JSON."""
 Draft Response:
 {response[:1500]}
 
-Check: accuracy, completeness, professional tone, policy compliance, empathy."""
+Solution package used:
+- Within agent authority: {solution.get('within_agent_authority', True)}
+- Policy boundaries applied: {solution.get('policy_boundaries_applied', [])}"""
 
     raw = _call_llm(system, human)
     try:
@@ -535,13 +597,22 @@ Check: accuracy, completeness, professional tone, policy compliance, empathy."""
             "completeness_score": 7,
             "tone_score": 7,
             "policy_compliance": True,
+            "policy_violations": [],
             "approval_status": "Approved",
             "improvement_notes": "",
             "strengths": [],
             "critical_issues": [],
         }
 
+    # Hard fail: policy violation forces retry regardless of score
     score = int(qa.get("overall_score", 7))
+    if qa.get("policy_violations") and len(qa["policy_violations"]) > 0:
+        score = min(score, 4)  # force retry if policy violated
+        qa["improvement_notes"] = (
+            f"POLICY VIOLATION detected: {qa['policy_violations']}. "
+            "Revise to stay strictly within policy limits."
+        )
+
     new_attempts = attempts + 1
 
     timings = dict(state.get("node_timings") or {})

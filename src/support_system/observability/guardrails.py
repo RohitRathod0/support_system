@@ -110,6 +110,35 @@ class GuardrailsEngine:
     # OUTPUT GUARDRAILS
     # ─────────────────────────────────────────────────────────────────────────
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # POLICY COMPLIANCE CHECK
+    # ─────────────────────────────────────────────────────────────────────────
+
+    # Patterns that indicate promises potentially exceeding policy
+    _POLICY_RISK_PATTERNS = [
+        (re.compile(r"(?i)refund.{0,30}(after|beyond|past).{0,20}(60|90|120)\s*day"), "refund_beyond_60_days"),
+        (re.compile(r"(?i)(immediate|instant|same.day)\s+refund"), "instant_refund_promise"),
+        (re.compile(r"(?i)refund.{0,20}\$\s*[5-9]\d{2,}"), "refund_over_500_no_escalation"),
+        (re.compile(r"(?i)(guarantee|promise|definitely|absolutely).{0,30}(fix|resolve|refund)"), "unqualified_guarantee"),
+        (re.compile(r"(?i)cash\s+(back|refund|payment).{0,20}outage"), "cash_refund_for_outage"),
+        (re.compile(r"(?i)bypass.{0,20}(verification|mfa|authentication)"), "security_bypass_offer"),
+        (re.compile(r"(?i)share.{0,30}(another|other).{0,20}(customer|account|user).{0,20}(data|info)"), "data_privacy_violation"),
+    ]
+
+    def check_policy_compliance(self, response: str) -> Dict[str, Any]:
+        """
+        Scan response for any language that might exceed policy limits.
+        Returns a dict with flags and whether a policy risk was detected.
+        """
+        risks = []
+        for pattern, risk_type in self._POLICY_RISK_PATTERNS:
+            if pattern.search(response):
+                risks.append(risk_type)
+        return {
+            "policy_compliant": len(risks) == 0,
+            "risks_detected": risks,
+        }
+
     def validate_output(self, response: str) -> Dict[str, Any]:
         """
         Validate LLM output before sending to customer.
@@ -117,6 +146,15 @@ class GuardrailsEngine:
         """
         flags: List[str] = []
         sanitized = response
+
+        # Policy compliance scan
+        policy_check = self.check_policy_compliance(response)
+        if not policy_check["policy_compliant"]:
+            flags.extend([f"policy_risk:{r}" for r in policy_check["risks_detected"]])
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Policy compliance risks in output: {policy_check['risks_detected']}"
+            )
 
         # 1. Mask any PII that leaked into response
         sanitized, pii_masked = self._mask_pii(sanitized)

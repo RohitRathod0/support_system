@@ -1,0 +1,135 @@
+{
+  "faqs": {
+    "password_reset": {
+      "question": "How do I reset my password?",
+      "answer": "Click 'Forgot Password' on the login page, enter your email, and follow the link sent to your inbox. The reset link expires in 15 minutes. If you don't receive the email, check your spam folder or contact support.",
+      "category": "account",
+      "tags": ["password", "login", "account", "reset", "forgot"]
+    },
+    "double_charge": {
+      "question": "Why was my card charged twice?",
+      "answer": "Double charges are usually temporary authorization holds that resolve within 3-5 business days. If both charges appear as 'Posted' (not 'Pending') after 5 days, contact billing support with your order ID. We will investigate and refund within 24 hours per our Payment Processing Policy.",
+      "category": "billing",
+      "tags": ["billing", "payment", "charge", "duplicate", "double charge"]
+    },
+    "refund_eligibility": {
+      "question": "Am I eligible for a refund?",
+      "answer": "You are eligible for a FULL refund within 30 days of purchase. Between 31-60 days, a partial refund (up to 50%) may apply for service disruptions. After 60 days, refunds are not available per our Refund Policy. Digital products that have been downloaded or accessed are non-refundable. Refund amounts over $100 require manager approval and may take 3-5 business days.",
+      "category": "billing",
+      "tags": ["refund", "money back", "billing", "cancel", "return"]
+    },
+    "subscription_cancel": {
+      "question": "How do I cancel my subscription?",
+      "answer": "You can cancel your subscription from Account Settings > Subscription > Cancel. Monthly subscriptions: cancellation takes effect immediately, no refund for the current month. Annual subscriptions: require 30 days notice. Your service remains active until the end of the paid period.",
+      "category": "billing",
+      "tags": ["cancel", "subscription", "billing", "downgrade", "stop"]
+    },
+    "account_locked": {
+      "question": "My account is locked, how do I unlock it?",
+      "answer": "Accounts are locked after 5 failed login attempts. To unlock: use the 'Unlock Account' email sent automatically, or contact support with a photo ID for manual verification. Agents cannot unlock accounts without identity verification per our Account Access Policy.",
+      "category": "account",
+      "tags": ["locked", "account", "login", "access", "blocked"]
+    },
+    "data_deletion": {
+      "question": "How do I request deletion of my data?",
+      "answer": "Submit a GDPR/data deletion request via Account Settings > Privacy > Delete My Data. We are legally required to fulfill deletion requests within 30 days. You will receive a confirmation email. Note: some data may be retained for legal/financial compliance purposes.",
+      "category": "account",
+      "tags": ["gdpr", "data", "delete", "privacy", "personal data"]
+    },
+    "upgrade_plan": {
+      "question": "How do I upgrade my plan?",
+      "answer": "Go to Account Settings > Subscription > Upgrade. Plan changes take effect at the next billing cycle per our Subscription Policy. You will be charged the pro-rated difference. Enterprise plans require contacting our sales team.",
+      "category": "billing",
+      "tags": ["upgrade", "plan", "premium", "enterprise", "subscription"]
+    },
+    "app_crash": {
+      "question": "The app keeps crashing, what should I do?",
+      "answer": "Try these steps: 1) Update the app to the latest version, 2) Clear app cache and data, 3) Restart your device, 4) Reinstall the app. If the issue persists, note the error code and contact technical support. Known issues are posted on our Status Page at status.yourcompany.com.",
+      "category": "technical",
+      "tags": ["crash", "bug", "app", "error", "technical", "not working"]
+    },
+    "service_outage": {
+      "question": "The service is down, what compensation do I get?",
+      "answer": "For verified outages caused by us: you receive 1 day of service credit per 4 hours of downtime, up to a maximum of 7 days credit. Compensation is in service credits only — no cash refunds for outages per our Compensation Policy. Credits are applied automatically to your account within 5 business days of the incident report.",
+      "category": "technical",
+      "tags": ["outage", "down", "service", "compensation", "credit", "refund"]
+    },
+    "mfa_setup": {
+      "question": "How do I set up two-factor authentication?",
+      "answer": "Go to Account Settings > Security > Two-Factor Authentication. We support authenticator apps (Google Authenticator, Authy) and SMS. MFA is required for all accounts per our Security Policy. If you lose access to your MFA device, contact support with identity verification.",
+      "category": "technical",
+      "tags": ["mfa", "2fa", "security", "authentication", "two factor"]
+    },
+    "vip_support": {
+      "question": "What support do VIP/Enterprise customers get?",
+      "answer": "VIP and Enterprise accounts receive: response within 4 hours, dedicated account manager, priority refund processing within 48 hours, and direct escalation to senior staff. All decisions on VIP accounts require account manager approval per our VIP Account Policy.",
+      "category": "general",
+      "tags": ["vip", "enterprise", "premium", "priority", "dedicated"]
+    }
+  },
+  "procedures": {
+    "escalation": {
+      "title": "Issue Escalation Process",
+      "steps": [
+        "Attempt resolution with available tools and policies",
+        "If customer is unsatisfied after 2 attempts, escalate to supervisor",
+        "Document issue details and all attempted solutions",
+        "Supervisor reviews and takes additional action if needed",
+        "MANDATORY escalation: legal threats, refund > $500, security breach, VIP account issue"
+      ]
+    },
+    "refund_process": {
+      "title": "Refund Processing Steps",
+      "steps": [
+        "Verify purchase date — must be within 30 days for full refund",
+        "Confirm refund amount — over $100 needs manager approval",
+        "Check if product was downloaded (non-refundable if digital)",
+        "Submit refund via billing portal with case ID",
+        "Customer receives refund in 5-7 business days",
+        "For amounts over $500, escalate to manager immediately"
+      ]
+    },
+    "account_verification": {
+      "title": "Identity Verification for Account Changes",
+      "steps": [
+        "Request email verification for password resets",
+        "For high-security changes, request government ID",
+        "Never share or reset credentials without verification",
+        "Log all identity verification requests with timestamp"
+      ]
+    },
+    "complaint_handling": {
+      "title": "Customer Complaint Handling",
+      "steps": [
+        "Acknowledge the complaint with empathy within first response",
+        "Identify the root cause before proposing a solution",
+        "Apply the resolution strictly within applicable policies",
+        "If resolution is outside policy, explain why and offer escalation",
+        "Document the complaint and resolution in the case management system",
+        "Follow up within 24 hours to confirm resolution"
+      ]
+    }
+  },
+  "policy_quick_reference": {
+    "refund_limits": {
+      "full_refund": "30 days from purchase",
+      "partial_refund": "31-60 days, up to 50% for service issues",
+      "no_refund": "After 60 days or digital products after access",
+      "agent_max": "$100 without manager approval",
+      "manager_max": "$500 without CFO approval"
+    },
+    "response_sla": {
+      "critical": "1 hour",
+      "high": "4 hours",
+      "vip": "4 hours",
+      "medium": "24 hours",
+      "low": "72 hours"
+    },
+    "compensation": {
+      "service_credit_per_4h_outage": "1 day credit",
+      "max_credit_agent": "$50 value",
+      "max_credit_supervisor_required": "over $50",
+      "cash_refunds": "NOT available for outages — service credits only"
+    }
+  }
+}

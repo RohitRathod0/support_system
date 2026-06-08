@@ -6,12 +6,16 @@ Also generates a Mermaid diagram for visual verification.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import functools
 import logging
 import os
 from typing import Any, Dict, Literal
 
 from langgraph.graph import StateGraph, END, START
+
+# Dedicated thread pool for running async nodes from sync context
+_THREAD_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
 from .state import SupportState, make_initial_state
 from .agents import (
@@ -124,18 +128,13 @@ def create_support_graph(
 
 
 def _run_async_node(state: SupportState, async_fn) -> Dict[str, Any]:
-    """Adapter: run an async node function from a sync context."""
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, async_fn(state))
-                return future.result()
-        else:
-            return loop.run_until_complete(async_fn(state))
-    except RuntimeError:
-        return asyncio.run(async_fn(state))
+    """
+    Safely run an async node function from LangGraph's sync executor.
+    Always spawns a fresh thread with its own event loop to avoid
+    'cannot run nested event loop' errors.
+    """
+    future = _THREAD_POOL.submit(asyncio.run, async_fn(state))
+    return future.result(timeout=120)
 
 
 # ─── GRAPH VISUALIZATION ──────────────────────────────────────────────────────
