@@ -19,6 +19,88 @@ from ..schemas import ChatRequest, ChatResponse, FeedbackRequest, StreamChunk, E
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
+# ─── Money-matter keywords that trigger admin HITL review ───────────────────────
+_MONEY_KEYWORDS = {
+    "refund", "return", "returned", "money", "payment", "charge", "charged",
+    "overcharged", "billing", "invoice", "reimburs", "credit", "damaged",
+    "broken", "defective", "not initiated", "not processed", "dispute",
+    "chargeback", "compensation", "reimburse", "fee", "penalty"
+}
+_MONEY_CATEGORIES = {"Billing", "Payment", "Refund"}
+
+
+def _is_money_matter(query: str, category: str, escalation_needed: bool) -> bool:
+    """Return True if this conversation involves money and needs admin approval."""
+    if escalation_needed:
+        return True
+    if category in _MONEY_CATEGORIES:
+        return True
+    q_lower = query.lower()
+    return any(kw in q_lower for kw in _MONEY_KEYWORDS)
+
+
+def _maybe_queue_admin_ticket(
+    cache,
+    query: str,
+    category: str,
+    urgency: str,
+    user_id: str,
+    session_id: str,
+    trace_id: str,
+    ai_response: str,
+    escalation_needed: bool = False,
+    escalation_report: dict = None,
+) -> None:
+    """
+    If this conversation is a money matter, write a pending admin ticket
+    to Redis so the admin dashboard can show it for human review.
+    """
+    if not _is_money_matter(query, category, escalation_needed):
+        return
+
+    ticket_id = f"TKT-{uuid.uuid4().hex[:8].upper()}"
+    ticket = {
+        "ticket_id":          ticket_id,
+        "status":             "pending",
+        "user_id":            user_id,
+        "session_id":         session_id,
+        "trace_id":           trace_id,
+        "query":              query,
+        "ai_response":        ai_response,
+        "category":           category,
+        "urgency":            urgency,
+        "escalation_needed":  escalation_needed,
+        "escalation_report":  escalation_report or {},
+        "ai_recommendation":  (
+            escalation_report.get("handoff_notes", "")
+            if escalation_report else "Requires manual review — money matter detected"
+        ),
+        "timestamp":          datetime.now().isoformat(),
+    }
+
+    import json
+    ticket_json = json.dumps(ticket)
+
+    if cache and cache._available:
+        key = f"admin:pending:{ticket_id}"
+        cache._r.setex(key, 86400 * 7, ticket_json)  # keep 7 days
+    else:
+        # In-memory fallback (module-level dict so it persists across requests)
+        if not hasattr(cache, "_pending_store") or cache is None:
+            import importlib
+            import sys
+            # Store on module level as fallback
+            mod = sys.modules[__name__]
+            if not hasattr(mod, "_in_memory_pending"):
+                mod._in_memory_pending = {}
+            mod._in_memory_pending[ticket_id] = ticket
+
+    import logging
+    logging.getLogger(__name__).info(
+        f"🚨 Admin ticket queued: {ticket_id} | {category} | {urgency} | user={user_id}"
+    )
+
+
 # ─── Shared pipeline runner ───────────────────────────────────────────────────
 async def _run_pipeline(
     request: Request,
@@ -135,6 +217,20 @@ async def _run_pipeline(
         final_response=clean_response,
         qa_score=final_state.get("qa_score", 7),
         processing_time=final_state.get("processing_time", 0),
+    )
+
+    # ── 9. Money-matter detection → Admin HITL queue ─────────────────────────
+    _maybe_queue_admin_ticket(
+        cache=cache,
+        query=query,
+        category=category,
+        urgency=final_state.get("urgency_level", "Medium"),
+        user_id=user_id,
+        session_id=session_id,
+        trace_id=trace_id,
+        ai_response=clean_response,
+        escalation_needed=final_state.get("escalation_needed", False),
+        escalation_report=final_state.get("escalation_report"),
     )
 
     return {
