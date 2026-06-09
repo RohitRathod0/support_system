@@ -10,7 +10,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import styles from './AdminDashboard.module.css'
 
-const API = 'http://localhost:8000'
+const API = ''
 
 function authHeaders() {
   const token = localStorage.getItem('admin_token')

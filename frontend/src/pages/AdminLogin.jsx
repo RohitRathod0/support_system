@@ -4,7 +4,7 @@ import { Shield, Mail, KeyRound, ArrowRight, Loader2, CheckCircle2 } from 'lucid
 import { motion, AnimatePresence } from 'framer-motion'
 import styles from './AdminLogin.module.css'
 
-const API = 'http://localhost:8000'
+const API = ''
 
 export default function AdminLogin() {
   const navigate = useNavigate()
