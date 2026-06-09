@@ -261,3 +261,57 @@
   margin-left: auto;
   margin-right: auto;
 }
+
+/* ── Feedback Modal ─────────────────────────────────────────── */
+.modalOverlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.modalContent {
+  background: #1a1a2e;
+  border: 1px solid #334155;
+  border-radius: 20px;
+  padding: 32px;
+  width: 400px;
+  max-width: 90%;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+.modalTitle { font-size: 20px; font-weight: 700; color: #f8fafc; margin-bottom: 8px; }
+.modalSub { font-size: 14px; color: #94a3b8; margin-bottom: 24px; }
+
+.starRating { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; }
+.star {
+  background: none; border: none; font-size: 32px; cursor: pointer; color: #475569;
+  transition: color 0.2s, transform 0.2s;
+}
+.star:hover { transform: scale(1.1); }
+.star.active { color: #fbbf24; }
+
+.commentArea {
+  width: 100%; height: 80px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 12px;
+  color: white; font-family: inherit; font-size: 14px;
+  resize: none; margin-bottom: 24px;
+}
+.commentArea:focus { outline: none; border-color: #6366f1; }
+
+.modalActions { display: flex; gap: 12px; }
+.btnCancel {
+  flex: 1; padding: 12px; border-radius: 12px;
+  background: transparent; border: 1px solid #475569; color: #cbd5e1; cursor: pointer; font-weight: 600;
+}
+.btnCancel:hover { background: rgba(255,255,255,0.05); }
+
+.btnSubmit {
+  flex: 1; padding: 12px; border-radius: 12px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; color: white; cursor: pointer; font-weight: 600;
+}
+.btnSubmit:hover { opacity: 0.9; }
+.btnSubmit:disabled { opacity: 0.5; cursor: not-allowed; }

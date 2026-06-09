@@ -194,22 +194,52 @@ async def upload_complaint_image(file: UploadFile = File(...)):
     }
 
 # ─── Serve React frontend build ───────────────────────────────────────────────
+from fastapi.responses import FileResponse
+
 _react_build = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "dist")
 if os.path.exists(_react_build):
-    app.mount("/app", StaticFiles(directory=_react_build, html=True), name="frontend")
+    # Mount /assets explicitly
+    app.mount("/assets", StaticFiles(directory=os.path.join(_react_build, "assets")), name="assets")
 
-# ─── Root endpoint ────────────────────────────────────────────────────────────
-@app.get("/", include_in_schema=False)
-async def root():
-    return {
-        "name": "Customer Support System — LangGraph Edition",
-        "version": "2.0.0",
-        "status": "operational",
-        "docs": "/docs",
-        "frontend": "/app",
-        "health": "/health",
-        "graph": "/health/graph",
-    }
+    # Provide API info endpoint
+    @app.get("/info", include_in_schema=False)
+    async def api_info():
+        return {
+            "name": "Customer Support System — LangGraph Edition",
+            "version": "2.0.0",
+            "status": "operational",
+            "docs": "/docs",
+            "frontend": "/",
+            "health": "/health",
+            "graph": "/health/graph",
+        }
+
+    # Catch-all for SPA routing (must be last!)
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        file_path = os.path.join(_react_build, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        
+        index_file = os.path.join(_react_build, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+        
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Not Found")
+
+else:
+    @app.get("/", include_in_schema=False)
+    async def root():
+        return {
+            "name": "Customer Support System — LangGraph Edition",
+            "version": "2.0.0",
+            "status": "operational",
+            "docs": "/docs",
+            "frontend": "Not Built (Run npm run build)",
+            "health": "/health",
+            "graph": "/health/graph",
+        }
 
 
 # ─── Dev entrypoint ───────────────────────────────────────────────────────────

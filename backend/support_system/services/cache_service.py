@@ -173,7 +173,14 @@ class CacheService:
         """Return top N most-complained-about categories in last 24h."""
         try:
             if not self._available:
-                return []
+                counts = []
+                for k, v in self._fallback.items():
+                    if k.startswith("complaints:category:"):
+                        category = k.split("complaints:category:")[-1]
+                        counts.append({"category": category, "count": int(v)})
+                counts.sort(key=lambda x: x["count"], reverse=True)
+                return counts[:top_n]
+                
             keys = list(self._r.scan_iter("complaints:category:*"))
             counts = []
             pipe = self._r.pipeline()

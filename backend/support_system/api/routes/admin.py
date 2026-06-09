@@ -576,6 +576,14 @@ async def get_feedback_feed(
                     entries.append(json.loads(raw))
                 except Exception:
                     pass
+    else:
+        if cache and hasattr(cache, "_fallback"):
+            for k, v in cache._fallback.items():
+                if k.startswith("feedback:"):
+                    try:
+                        entries.append(json.loads(v))
+                    except Exception:
+                        pass
 
     # Apply filter
     if filter == "low_rated":

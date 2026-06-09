@@ -133,6 +133,24 @@ export function useChat() {
     return await res.json()
   }, [])
 
+  const submitFeedback = useCallback(async (rating, comment, escalated = false) => {
+    if (!sessionId) return
+    try {
+      await fetch(`${API}/chat/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          rating,
+          comments: comment,
+          escalated
+        })
+      })
+    } catch (err) {
+      console.error('Failed to submit feedback', err)
+    }
+  }, [sessionId])
+
   return {
     messages,
     isLoading,
@@ -142,6 +160,7 @@ export function useChat() {
     sessionId,
     sendMessage,
     uploadImage,
+    submitFeedback,
     clearChat: () => { setMessages([]); setSessionId(null); setLastMeta(null); resetNodes() },
   }
 }

@@ -407,6 +407,7 @@ MANDATORY RULES:
 - If the customer's request exceeds policy limits, clearly but empathetically explain the policy boundary
 - Always tell the customer what CAN be done within policy, not just what cannot
 - If escalation is required by policy, include that as a step
+- CRITICAL: If the customer reports a damaged, leaking, or defective product and requests a return, refund, or replacement, you MUST ask them to provide photographic proof (images) before proceeding with any return processing.
 
 Return JSON:
 {{

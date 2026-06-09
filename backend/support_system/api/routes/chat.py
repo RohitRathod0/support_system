@@ -503,12 +503,21 @@ async def chat_stream(chat_req: ChatRequest, request: Request) -> StreamingRespo
 async def submit_feedback(feedback: FeedbackRequest, request: Request) -> dict:
     """Record customer satisfaction feedback."""
     from datetime import datetime
+    import json
     # Store in cache for analytics
     cache = request.app.state.cache_service
+    key = f"feedback:{feedback.session_id}"
+    payload = json.dumps(feedback.dict())
+    
     if cache and cache._available:
-        key = f"feedback:{feedback.session_id}"
-        import json
-        cache._r.setex(key, 86400 * 7, json.dumps(feedback.dict()))
+        cache._r.setex(key, 86400 * 7, payload)
+    else:
+        # Fallback to in-memory store
+        if not hasattr(cache, "_fallback") or cache is None:
+            # Should not happen, but safe
+            pass
+        else:
+            cache._fallback[key] = payload
 
     return {
         "status": "recorded",

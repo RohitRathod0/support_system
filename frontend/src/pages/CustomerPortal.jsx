@@ -17,9 +17,12 @@ const QUICK = [
 ]
 
 export default function CustomerPortal() {
-  const { messages, isLoading, sendMessage, clearChat, lastMeta } = useChat()
+  const { messages, isLoading, sendMessage, clearChat, submitFeedback, lastMeta } = useChat()
   const [input, setInput] = useState('')
   const [image, setImage] = useState(null)   // { url, base64, contentType }
+  const [showFeedback, setShowFeedback] = useState(false)
+  const [rating, setRating] = useState(0)
+  const [comment, setComment] = useState('')
   const bottomRef = useRef()
   const textRef = useRef()
 
@@ -59,8 +62,8 @@ export default function CustomerPortal() {
             Online
           </div>
           {messages.length > 0 && (
-            <button className={styles.iconBtn} onClick={clearChat} title="New conversation">
-              <Trash2 size={15} />
+            <button className={styles.iconBtn} onClick={() => setShowFeedback(true)} title="End conversation & give feedback" style={{ width: 'auto', padding: '0 12px', fontSize: '13px' }}>
+              End Chat
             </button>
           )}
           <Link to="/dashboard" className={styles.dashBtn}>
@@ -157,6 +160,62 @@ export default function CustomerPortal() {
           )}
         </div>
       </footer>
+
+      {/* ── Feedback Modal ──────────────────────────────────────────── */}
+      {showFeedback && (
+        <div className={styles.modalOverlay}>
+          <motion.div 
+            className={styles.modalContent}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+          >
+            <div className={styles.modalTitle}>How did we do?</div>
+            <div className={styles.modalSub}>Your feedback helps us improve our AI support agent.</div>
+            
+            <div className={styles.starRating}>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <button 
+                  key={s} 
+                  className={`${styles.star} ${rating >= s ? styles.active : ''}`}
+                  onClick={() => setRating(s)}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+
+            <textarea 
+              className={styles.commentArea}
+              placeholder="Tell us what you liked or what could be better (optional)"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+
+            <div className={styles.modalActions}>
+              <button 
+                className={styles.btnCancel} 
+                onClick={() => setShowFeedback(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                className={styles.btnSubmit} 
+                disabled={rating === 0}
+                onClick={async () => {
+                  const escalated = lastMeta?.escalation_needed || false
+                  await submitFeedback(rating, comment, escalated)
+                  setShowFeedback(false)
+                  setRating(0)
+                  setComment('')
+                  clearChat()
+                }}
+              >
+                Submit Feedback
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }
