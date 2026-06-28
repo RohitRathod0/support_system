@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
     # ── Paths ────────────────────────────────────────────────────────────────
     base_dir    = os.path.dirname(os.path.abspath(__file__))
     src_dir     = os.path.abspath(os.path.join(base_dir, ".."))
-    root_dir    = os.path.abspath(os.path.join(src_dir, "..", ".."))
+    root_dir    = os.path.abspath(os.path.join(src_dir, ".."))
     data_dir    = os.path.join(root_dir, "data")
     vdb_dir     = os.path.join(root_dir, "vector_db")
     uploads_dir = os.path.join(root_dir, "uploads")
@@ -158,7 +158,7 @@ app.include_router(sessions_router)
 app.include_router(admin_router)
 
 # ─── Serve uploaded images ───────────────────────────────────────────────────
-_uploads_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "uploads")
+_uploads_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads")
 os.makedirs(_uploads_dir, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
 
@@ -196,7 +196,7 @@ async def upload_complaint_image(file: UploadFile = File(...)):
 # ─── Serve React frontend build ───────────────────────────────────────────────
 from fastapi.responses import FileResponse
 
-_react_build = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "dist")
+_react_build = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 if os.path.exists(_react_build):
     # Mount /assets explicitly
     app.mount("/assets", StaticFiles(directory=os.path.join(_react_build, "assets")), name="assets")
@@ -246,7 +246,7 @@ else:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "src.support_system.api.main:app",
+        "backend.api.main:app",
         host="0.0.0.0",
         port=8000,
         reload=True,
