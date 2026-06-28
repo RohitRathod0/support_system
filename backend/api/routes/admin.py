@@ -34,7 +34,7 @@ from pydantic import BaseModel, EmailStr
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/admin", tags=["Admin"])
+router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 JWT_SECRET   = os.getenv("ADMIN_JWT_SECRET", "super-secret-admin-key-change-in-prod")

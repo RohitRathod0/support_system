@@ -11,7 +11,7 @@ export default defineConfig({
       '/analytics': 'http://localhost:8000',
       '/uploads': 'http://localhost:8000',
       '/sessions': 'http://localhost:8000',
-      '/admin': 'http://localhost:8000',
+      '/api/admin': 'http://localhost:8000',
     }
   },
   build: {

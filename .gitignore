@@ -1,3 +1,64 @@
+# ─── Environment & Secrets ────────────────────────────────────────────────────
 .env
+.env.*
+!.env.example
+
+# ─── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.xml
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+.pytype/
+
+# ─── Node / React / Vite ─────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.eslintcache
+frontend/.vite/
+
+# ─── Project-specific ─────────────────────────────────────────────────────────
+# ChromaDB vector store (auto-generated, rebuilt via ingest_kb.py)
+vector_db/
+
+# User uploaded images
+uploads/
+
+# ─── IDEs & Editors ───────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── OS Files ─────────────────────────────────────────────────────────────────
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/

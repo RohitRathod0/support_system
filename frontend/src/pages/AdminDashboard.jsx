@@ -46,11 +46,11 @@ function useAdminData() {
     setLoading(true)
     try {
       const [pRes, rRes, prRes, aiRes, fbRes] = await Promise.all([
-        fetch(`${API}/admin/pending`,              { headers: authHeaders() }),
-        fetch(`${API}/admin/resolved?limit=20`,    { headers: authHeaders() }),
-        fetch(`${API}/admin/product-analytics`,    { headers: authHeaders() }),
-        fetch(`${API}/admin/ai-resolution-summary`,{ headers: authHeaders() }),
-        fetch(`${API}/admin/feedback-feed`,        { headers: authHeaders() }),
+        fetch(`${API}/api/admin/pending`,              { headers: authHeaders() }),
+        fetch(`${API}/api/admin/resolved?limit=20`,    { headers: authHeaders() }),
+        fetch(`${API}/api/admin/product-analytics`,    { headers: authHeaders() }),
+        fetch(`${API}/api/admin/ai-resolution-summary`,{ headers: authHeaders() }),
+        fetch(`${API}/api/admin/feedback-feed`,        { headers: authHeaders() }),
       ])
       if (pRes.status === 401) { localStorage.removeItem('admin_token'); window.location.href = '/admin/login'; return }
       const [p, r, pr, ai, fb] = await Promise.all([pRes.json(), rRes.json(), prRes.json(), aiRes.json(), fbRes.json()])
@@ -91,7 +91,7 @@ export default function AdminDashboard() {
   const approveTicket = async (ticketId) => {
     setActionLoading(ticketId)
     try {
-      await fetch(`${API}/admin/approve/${ticketId}`, { method: 'POST', headers: authHeaders() })
+      await fetch(`${API}/api/admin/approve/${ticketId}`, { method: 'POST', headers: authHeaders() })
       await refresh()
     } catch (e) { console.error(e) }
     setActionLoading(null)
@@ -102,7 +102,7 @@ export default function AdminDashboard() {
     if (!rejectModal || !rejectReason.trim()) return
     setActionLoading(rejectModal.ticket_id)
     try {
-      await fetch(`${API}/admin/reject/${rejectModal.ticket_id}`, {
+      await fetch(`${API}/api/admin/reject/${rejectModal.ticket_id}`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ reason: rejectReason }),

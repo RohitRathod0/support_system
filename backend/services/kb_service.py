@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 import chromadb
 from chromadb.utils import embedding_functions
-from langchain.schema import Document
+from langchain_core.documents import Document
 
 logger = logging.getLogger(__name__)
 

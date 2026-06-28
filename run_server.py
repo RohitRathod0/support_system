@@ -59,11 +59,11 @@ def main():
 
     import uvicorn
 
-    # Add backend/ to path
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
+    # Add project root to path so `backend` package is importable
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
     uvicorn.run(
-        "support_system.api.main:app",
+        "backend.api.main:app",
         host=args.host,
         port=args.port,
         reload=args.reload,

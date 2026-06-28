@@ -9,8 +9,8 @@ import json
 import os
 import sys
 
-# Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
+# Add project root to path so `backend` package is importable
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -72,8 +72,8 @@ def load_knowledge_base():
 
 
 def main():
-    from support_system.services.kb_service import KnowledgeBaseService
-    from support_system.services.policy_service import PolicyService
+    from backend.services.kb_service import KnowledgeBaseService
+    from backend.services.policy_service import PolicyService
 
     print("=" * 55)
     print("  KB Ingestion — Customer Support System v2")
