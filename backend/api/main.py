@@ -150,12 +150,14 @@ from .routes.health    import router as health_router
 from .routes.chat      import router as chat_router
 from .routes.analytics import analytics_router, sessions_router
 from .routes.admin     import router as admin_router
+from .return_session   import router as return_session_router
 
 app.include_router(health_router)
 app.include_router(chat_router)
 app.include_router(analytics_router)
 app.include_router(sessions_router)
 app.include_router(admin_router)
+app.include_router(return_session_router)
 
 # ─── Serve uploaded images ───────────────────────────────────────────────────
 _uploads_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads")
