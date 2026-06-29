@@ -54,6 +54,19 @@ async def _acall_llm(system: str, human: str) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 # NODE 1 · TICKET CLASSIFIER
 # ═══════════════════════════════════════════════════════════════════════════════
+def detect_resolution(message: str) -> bool:
+    """Returns True if the customer message signals the issue is resolved."""
+    signals = [
+        "resolved", "satisfied", "thank you", "thanks", "problem solved",
+        "issue fixed", "all good", "that's all", "no more questions",
+        "query is resolved", "query resolved", "issue resolved",
+        "happy with", "that helps", "got it thank", "appreciate your help",
+        "great help", "good help", "my problem is solved",
+    ]
+    msg_lower = message.lower()
+    return any(s in msg_lower for s in signals)
+
+
 def check_for_defect_language(message: str) -> bool:
     keywords = [
         "hole", "torn", "tear", "rip", "damaged", "damage", "defective",
@@ -73,6 +86,7 @@ def classify_ticket_node(state: SupportState) -> Dict[str, Any]:
     query = state["customer_query"]
     
     defect_detected = check_for_defect_language(query)
+    resolution_detected = detect_resolution(query)
 
     system = """You are a Senior Customer Support Ticket Classifier with 10+ years of experience.
 Analyze the customer query and return a JSON object with EXACTLY these fields:
@@ -119,6 +133,7 @@ Return ONLY valid JSON, no markdown, no extra text."""
         "special_flags": data.get("special_flags", []),
         "ticket_classification": data,
         "defect_language_detected": defect_detected,
+        "resolution_detected": resolution_detected,
         "node_timings": timings,
     }
 

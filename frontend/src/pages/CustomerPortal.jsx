@@ -18,7 +18,7 @@ const QUICK = [
 ]
 
 export default function CustomerPortal() {
-  const { messages, isLoading, sendMessage, clearChat, submitFeedback, lastMeta } = useChat()
+  const { messages, isLoading, sendMessage, clearChat, lastMeta, userId, sessionId } = useChat()
   const [input, setInput] = useState('')
   const [image, setImage] = useState(null)   // { url, base64, contentType }
   const [showFeedback, setShowFeedback] = useState(false)
@@ -26,6 +26,12 @@ export default function CustomerPortal() {
   const [comment, setComment] = useState('')
   const [videoTriggerPending, setVideoTriggerPending] = useState(false)
   const [showVideoSession, setShowVideoSession] = useState(false)
+  // Resolution + inline feedback
+  const [resolutionDetected, setResolutionDetected] = useState(false)
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
+  const [feedbackRating, setFeedbackRating] = useState(null)
+  const [feedbackComment, setFeedbackComment] = useState('')
+  const [hoverStar, setHoverStar] = useState(0)
   const bottomRef = useRef()
   const textRef = useRef()
 
@@ -39,6 +45,20 @@ export default function CustomerPortal() {
     } else {
       setVideoTriggerPending(false)
     }
+  }, [lastMeta])
+
+  // Resolution detection
+  useEffect(() => {
+    if (lastMeta?.resolution_detected && !resolutionDetected && !feedbackSubmitted) {
+      setResolutionDetected(true)
+      // Fire and forget the resolve call
+      fetch('/chat/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, customer_id: userId, resolved_by: 'ai' }),
+      }).catch(() => {})
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastMeta])
 
   const submit = () => {
@@ -153,6 +173,74 @@ export default function CustomerPortal() {
                 
                 return <MessageBubble key={m.id} message={m} />
               })}
+
+              {/* Inline feedback widget — shown once after resolution */}
+              {resolutionDetected && !feedbackSubmitted && (
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '16px' }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>🤖</div>
+                  <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '16px 20px', maxWidth: '480px' }}>
+                    <p style={{ margin: '0 0 12px', color: '#e2e8f0', fontSize: '14px', lineHeight: 1.6 }}>
+                      We're glad your issue is resolved! 😊<br />
+                      How would you rate your experience today?
+                    </p>
+                    {/* Star row */}
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+                      {[1,2,3,4,5].map(s => (
+                        <button
+                          key={s}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '24px', lineHeight: 1,
+                            color: s <= (hoverStar || feedbackRating || 0) ? '#f59e0b' : '#334155',
+                            transition: 'color 0.15s' }}
+                          onMouseEnter={() => setHoverStar(s)}
+                          onMouseLeave={() => setHoverStar(0)}
+                          onClick={() => setFeedbackRating(s)}
+                        >★</button>
+                      ))}
+                    </div>
+                    {/* Comment */}
+                    <textarea
+                      style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px',
+                        color: '#e2e8f0', padding: '8px 12px', fontSize: '13px', resize: 'vertical', minHeight: '56px', boxSizing: 'border-box' }}
+                      placeholder="Any additional comments? (optional)"
+                      value={feedbackComment}
+                      onChange={e => setFeedbackComment(e.target.value)}
+                    />
+                    {/* Submit */}
+                    <button
+                      disabled={feedbackRating === null}
+                      style={{ marginTop: '10px', background: feedbackRating ? '#6366f1' : '#334155', color: 'white', border: 'none',
+                        borderRadius: '8px', padding: '8px 18px', fontSize: '13px', fontWeight: 600, cursor: feedbackRating ? 'pointer' : 'not-allowed',
+                        opacity: feedbackRating ? 1 : 0.5, transition: 'background 0.2s' }}
+                      onClick={async () => {
+                        try {
+                          await fetch('/chat/feedback', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              session_id: sessionId,
+                              customer_id: userId,
+                              rating: feedbackRating,
+                              comment: feedbackComment,
+                            }),
+                          })
+                        } catch (_) {}
+                        setFeedbackSubmitted(true)
+                      }}
+                    >Submit Feedback</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Thank-you message after submit */}
+              {resolutionDetected && feedbackSubmitted && (
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '16px' }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>🤖</div>
+                  <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '14px 18px', color: '#a7f3d0', fontSize: '14px' }}>
+                    Thank you for your feedback! ⭐
+                  </div>
+                </div>
+              )}
+
               <div ref={bottomRef} />
             </div>
           )}

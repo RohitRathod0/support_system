@@ -93,6 +93,9 @@ class ChatResponse(BaseModel):
     # Auto Video Trigger
     trigger_video: bool = False
 
+    # Resolution Detection
+    resolution_detected: bool = False
+
 
 class StreamChunk(BaseModel):
     """Single SSE chunk for streaming responses."""

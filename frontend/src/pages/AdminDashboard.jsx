@@ -42,6 +42,8 @@ function useAdminData() {
   const [feedback,   setFeedback]   = useState({ feedback: [], summary: {} })
   const [loading,    setLoading]    = useState(true)
   const [lastRefresh, setLastRefresh] = useState(null)
+  const [chatStats,  setChatStats]  = useState(null)
+  const [feedbackList, setFeedbackList] = useState([])
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -74,13 +76,30 @@ function useAdminData() {
     return () => clearInterval(t)
   }, [refresh])
 
-  return { pending, resolved, products, aiSummary, feedback, loading, lastRefresh, refresh }
+  // Fetch real chat stats + feedback list on mount
+  useEffect(() => {
+    async function loadChatData() {
+      try {
+        const [sRes, fRes] = await Promise.all([
+          fetch(`${API}/api/chat/stats`),
+          fetch(`${API}/api/chat/feedback/list`),
+        ])
+        if (sRes.ok) setChatStats(await sRes.json())
+        if (fRes.ok) setFeedbackList(await fRes.json())
+      } catch (e) {
+        console.error('Chat stats fetch error:', e)
+      }
+    }
+    loadChatData()
+  }, [])
+
+  return { pending, resolved, products, aiSummary, feedback, loading, lastRefresh, refresh, chatStats, feedbackList }
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const { logout, email } = useAdminAuth()
-  const { pending, resolved, products, aiSummary, feedback, loading, lastRefresh, refresh } = useAdminData()
+  const { pending, resolved, products, aiSummary, feedback, loading, lastRefresh, refresh, chatStats, feedbackList } = useAdminData()
   const [activeTab,    setActiveTab]    = useState('approvals')
   const [rejectModal,  setRejectModal]  = useState(null)   // ticket being rejected
   const [rejectReason, setRejectReason] = useState('')
@@ -388,20 +407,22 @@ export default function AdminDashboard() {
                   message="No AI data yet" sub="Process some customer queries to see AI metrics here." />
               ) : (
                 <>
-                  {/* KPI row */}
+                  {/* KPI row — prefer real chatStats over aiSummary fallback */}
                   <div className={styles.kpiRow}>
                     <KpiCard
                       label="Total Conversations"
-                      value={aiSummary.overview?.total_conversations ?? 0}
+                      value={chatStats?.total_conversations ?? aiSummary.overview?.total_conversations ?? 0}
                       icon={<Activity size={20} />}
                       color="#6366f1"
                     />
                     <KpiCard
                       label="AI Resolved"
-                      value={aiSummary.overview?.ai_resolved ?? 0}
+                      value={chatStats?.ai_resolved ?? aiSummary.overview?.ai_resolved ?? 0}
                       icon={<CheckCircle2 size={20} />}
                       color="#10b981"
-                      sub={`${aiSummary.overview?.ai_success_rate ?? 0}% success rate`}
+                      sub={`${chatStats && chatStats.total_conversations > 0
+                        ? Math.round(chatStats.ai_resolved / chatStats.total_conversations * 100)
+                        : (aiSummary.overview?.ai_success_rate ?? 0)}% success rate`}
                     />
                     <KpiCard
                       label="Escalated to Human"
@@ -431,6 +452,7 @@ export default function AdminDashboard() {
                         <QualityMetric label="Avg QA Score" value={`${aiSummary.quality?.avg_qa_score ?? '—'}/10`} color="#6366f1" />
                         <QualityMetric label="Avg Response Time" value={`${aiSummary.quality?.avg_processing_time_s ?? '—'}s`} color="#10b981" />
                         <QualityMetric label="Cache Hit Rate" value={`${aiSummary.quality?.cache_hit_rate ?? 0}%`} color="#f59e0b" />
+                        <QualityMetric label="Avg Rating" value={chatStats?.avg_rating ? `${chatStats.avg_rating}/5` : '—'} color="#f59e0b" />
                       </div>
                     </div>
 
@@ -457,19 +479,19 @@ export default function AdminDashboard() {
                 color="#10b981"
               />
 
-              {/* Summary pills */}
+              {/* Summary pills — prefer chatStats */}
               <div className={styles.feedbackSummary}>
                 <div className={styles.summaryPill} style={{ borderColor: '#6366f1' }}>
                   <Star size={14} color="#6366f1" fill="#6366f1" />
-                  <span>Avg: <strong>{feedback.summary?.avg_rating ?? '—'}/5</strong></span>
+                  <span>Avg: <strong>{chatStats?.avg_rating ?? feedback.summary?.avg_rating ?? '—'}/5</strong></span>
                 </div>
                 <div className={styles.summaryPill} style={{ borderColor: '#10b981' }}>
                   <ThumbsUp size={14} color="#10b981" />
-                  <span>High rated: <strong>{feedback.summary?.high_rated_count ?? 0}</strong></span>
+                  <span>Total feedback: <strong>{chatStats?.total_feedback ?? feedback.summary?.high_rated_count ?? 0}</strong></span>
                 </div>
                 <div className={styles.summaryPill} style={{ borderColor: '#ef4444' }}>
                   <ThumbsDown size={14} color="#ef4444" />
-                  <span>Low rated: <strong>{feedback.summary?.low_rated_count ?? 0}</strong></span>
+                  <span>Low rated: <strong>{(feedbackList.length > 0 ? feedbackList : (feedback.feedback || [])).filter(f => f.rating <= 2).length}</strong></span>
                 </div>
               </div>
 
@@ -487,45 +509,48 @@ export default function AdminDashboard() {
                 ))}
               </div>
 
-              {feedback.feedback?.length === 0 ? (
-                <EmptyState icon={<MessageSquare size={40} color="#10b981" />}
-                  message="No feedback yet" sub="Customer ratings will appear here after interactions." />
-              ) : (
-                <div className={styles.feedbackList}>
-                  {feedback.feedback?.slice(0, 20).map((fb, i) => (
-                    <motion.div
-                      key={fb.session_id || i}
-                      className={styles.feedbackCard}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.04 }}
-                    >
-                      <div className={styles.feedbackTop}>
-                        <div className={styles.stars}>
-                          {[1,2,3,4,5].map(s => (
-                            <Star
-                              key={s} size={14}
-                              fill={s <= (fb.rating || 0) ? '#f59e0b' : 'transparent'}
-                              color={s <= (fb.rating || 0) ? '#f59e0b' : '#334155'}
-                            />
-                          ))}
-                          <span className={styles.ratingNum}>{fb.rating}/5</span>
+              {/* Use feedbackList (real data) if available, fall back to aiSummary feed */}
+              {(() => {
+                const items = feedbackList.length > 0 ? feedbackList : (feedback.feedback || [])
+                return items.length === 0 ? (
+                  <EmptyState icon={<MessageSquare size={40} color="#10b981" />}
+                    message="No feedback yet" sub="Customer ratings will appear here after interactions." />
+                ) : (
+                  <div className={styles.feedbackList}>
+                    {items.slice(0, 50).map((fb, i) => (
+                      <motion.div
+                        key={fb.session_id || i}
+                        className={styles.feedbackCard}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.04 }}
+                      >
+                        <div className={styles.feedbackTop}>
+                          <div className={styles.stars}>
+                            {[1,2,3,4,5].map(s => (
+                              <Star
+                                key={s} size={14}
+                                fill={s <= (fb.rating || 0) ? '#f59e0b' : 'transparent'}
+                                color={s <= (fb.rating || 0) ? '#f59e0b' : '#334155'}
+                              />
+                            ))}
+                            <span className={styles.ratingNum}>{fb.rating}/5</span>
+                          </div>
+                          <span className={styles.feedbackMeta}>
+                            {fb.session_id?.slice(0, 8) ?? '—'} ·{' '}
+                            {fb.timestamp ? new Date(fb.timestamp).toLocaleString() : '—'}
+                          </span>
                         </div>
-                        <span className={styles.feedbackMeta}>
-                          {fb.session_id?.slice(0, 8) ?? '—'} ·{' '}
-                          {fb.timestamp ? new Date(fb.timestamp).toLocaleString() : '—'}
-                        </span>
-                      </div>
-                      {fb.comment && <p className={styles.feedbackComment}>"{fb.comment}"</p>}
-                      <div className={styles.feedbackTags}>
-                        {fb.helpful === false && <span className={styles.tagRed}>Not helpful</span>}
-                        {fb.rating <= 2 && <span className={styles.tagRed}>Low satisfaction</span>}
-                        {fb.rating >= 4 && <span className={styles.tagGreen}>Satisfied</span>}
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
+                        {fb.comment && <p className={styles.feedbackComment}>"{fb.comment}"</p>}
+                        <div className={styles.feedbackTags}>
+                          {fb.rating <= 2 && <span className={styles.tagRed}>Low satisfaction</span>}
+                          {fb.rating >= 4 && <span className={styles.tagGreen}>Satisfied</span>}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )
+              })()}
             </motion.div>
           )}
 

@@ -68,6 +68,9 @@ class SupportState(TypedDict, total=False):
     contradiction_message: str
     defect_language_detected: bool
 
+    # ─── RESOLUTION DETECTION ─────────────────────────────────────────────────
+    resolution_detected: bool
+
     # ─── OBSERVABILITY ────────────────────────────────────────────────────────
     trace_id: str
     node_timings: Dict[str, float]   # node_name → seconds
@@ -110,4 +113,5 @@ def make_initial_state(
         contradiction_type="",
         contradiction_message="",
         defect_language_detected=False,
+        resolution_detected=False,
     )

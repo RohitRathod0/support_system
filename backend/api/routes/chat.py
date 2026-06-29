@@ -254,6 +254,7 @@ async def _run_pipeline(
         "evaluation": evaluation,
         "parallel_phases_used": ["retrieval", "post_persist"],
         "trigger_video": final_state.get("defect_language_detected", False),
+        "resolution_detected": final_state.get("resolution_detected", False),
     }
 
 
@@ -470,6 +471,7 @@ async def chat_stream(chat_req: ChatRequest, request: Request) -> StreamingRespo
                     "cache_hit": False,
                     "errors": complete_state.get("errors", []),
                     "trigger_video": complete_state.get("defect_language_detected", False),
+                    "resolution_detected": complete_state.get("resolution_detected", False),
                 }
             })
 
@@ -503,28 +505,119 @@ async def chat_stream(chat_req: ChatRequest, request: Request) -> StreamingRespo
 
 # ─── POST /chat/feedback ──────────────────────────────────────────────────────
 @router.post("/feedback")
-async def submit_feedback(feedback: FeedbackRequest, request: Request) -> dict:
-    """Record customer satisfaction feedback."""
-    from datetime import datetime
-    import json
-    # Store in cache for analytics
+async def submit_feedback(request: Request, body: dict) -> dict:
+    """Record customer satisfaction feedback (rating 1–5 required)."""
+    from datetime import datetime, timezone
+
+    session_id = body.get("session_id", "")
+    customer_id = body.get("customer_id", "")
+    rating = body.get("rating")
+    comment = body.get("comment", "")
+
+    if rating is None or not isinstance(rating, int) or rating < 1 or rating > 5:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+
     cache = request.app.state.cache_service
-    key = f"feedback:{feedback.session_id}"
-    payload = json.dumps(feedback.dict())
-    
+    payload = {
+        "session_id": session_id,
+        "customer_id": customer_id,
+        "rating": rating,
+        "comment": comment,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    payload_json = json.dumps(payload)
+
     if cache and cache._available:
-        cache._r.setex(key, 86400 * 7, payload)
-    else:
-        # Fallback to in-memory store
-        if not hasattr(cache, "_fallback") or cache is None:
-            # Should not happen, but safe
-            pass
-        else:
-            cache._fallback[key] = payload
+        cache._r.setex(f"feedback:{session_id}", 2592000, payload_json)  # 30 days
+        cache._r.rpush("feedback:all", session_id)
+        cache._r.incr(f"stats:feedback:rating:{rating}")
+
+    return {"success": True}
+
+
+# ─── POST /chat/resolve ───────────────────────────────────────────────────────
+@router.post("/resolve")
+async def resolve_session(request: Request, body: dict) -> dict:
+    """Mark a session as AI-resolved and increment stats counter."""
+    from datetime import datetime, timezone
+
+    session_id = body.get("session_id", "")
+    customer_id = body.get("customer_id", "")
+    resolved_by = body.get("resolved_by", "ai")
+
+    cache = request.app.state.cache_service
+    payload = {
+        "session_id": session_id,
+        "customer_id": customer_id,
+        "resolved_by": resolved_by,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    if cache and cache._available:
+        cache._r.setex(f"session:resolved:{session_id}", 86400, json.dumps(payload))
+        cache._r.incr("stats:ai_resolved")
+
+    return {"success": True}
+
+
+# ─── GET /chat/stats ──────────────────────────────────────────────────────────
+@router.get("/stats")
+async def get_chat_stats(request: Request) -> dict:
+    """Return aggregate stats for the admin dashboard."""
+    cache = request.app.state.cache_service
+
+    if not (cache and cache._available):
+        return {
+            "total_conversations": 0,
+            "ai_resolved": 0,
+            "avg_rating": 0,
+            "total_feedback": 0,
+        }
+
+    r = cache._r
+    total_conversations = int(r.get("stats:total_conversations") or 0)
+    ai_resolved = int(r.get("stats:ai_resolved") or 0)
+    total_feedback = r.llen("feedback:all")
+
+    # Weighted average rating
+    total_ratings = 0
+    weighted_sum = 0
+    for star in range(1, 6):
+        cnt = int(r.get(f"stats:feedback:rating:{star}") or 0)
+        total_ratings += cnt
+        weighted_sum += star * cnt
+    avg_rating = round(weighted_sum / total_ratings, 2) if total_ratings > 0 else 0
 
     return {
-        "status": "recorded",
-        "session_id": feedback.session_id,
-        "rating": feedback.rating,
-        "timestamp": datetime.now().isoformat(),
+        "total_conversations": total_conversations,
+        "ai_resolved": ai_resolved,
+        "avg_rating": avg_rating,
+        "total_feedback": total_feedback,
     }
+
+
+# ─── GET /chat/feedback/list ──────────────────────────────────────────────────
+@router.get("/feedback/list")
+async def list_feedback(request: Request) -> list:
+    """Return up to 50 most-recent feedback entries sorted by timestamp desc."""
+    cache = request.app.state.cache_service
+
+    if not (cache and cache._available):
+        return []
+
+    r = cache._r
+    session_ids = r.lrange("feedback:all", 0, -1)
+
+    entries = []
+    for sid in session_ids:
+        sid_str = sid.decode() if isinstance(sid, bytes) else sid
+        raw = r.get(f"feedback:{sid_str}")
+        if raw:
+            try:
+                entries.append(json.loads(raw))
+            except Exception:
+                pass
+
+    entries.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    return entries[:50]
