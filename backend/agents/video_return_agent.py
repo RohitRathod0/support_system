@@ -4,7 +4,7 @@ import redis.asyncio as aioredis
 from typing import TypedDict, List, Dict, Any
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import interrupt
-import google.generativeai as genai
+from mistralai import Mistral
 import chromadb
 
 class ReturnAgentState(TypedDict):
@@ -22,8 +22,7 @@ class ReturnAgentState(TypedDict):
     final_action: str
 
 def analyze_video(state: ReturnAgentState) -> ReturnAgentState:
-    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    client = Mistral(api_key=os.getenv("MISTRAL_API_KEY"))
     
     prompt = """
     Please analyze these video frames and provide a structured JSON output with these exact keys:
@@ -37,20 +36,25 @@ def analyze_video(state: ReturnAgentState) -> ReturnAgentState:
     - recommended_action (str)
     """
     
-    parts = []
+    content = [{"type": "text", "text": prompt}]
+    
     for frame in state.get("video_frames", []):
-        parts.append({"mime_type": "image/jpeg", "data": frame})
+        content.append({
+            "type": "image_url",
+            "image_url": f"data:image/jpeg;base64,{frame}"
+        })
+        
+    messages = [{"role": "user", "content": content}]
     
-    contents = [prompt] + parts
-    
-    response = model.generate_content(
-        contents,
-        generation_config=genai.GenerationConfig(response_mime_type="application/json")
+    response = client.chat.complete(
+        model="pixtral-12b-2409",
+        messages=messages,
+        response_format={"type": "json_object"}
     )
     
     try:
-        vision_output = json.loads(response.text)
-    except json.JSONDecodeError:
+        vision_output = json.loads(response.choices[0].message.content)
+    except Exception:
         vision_output = {
             "defect_detected": False,
             "confidence": 0.0,
