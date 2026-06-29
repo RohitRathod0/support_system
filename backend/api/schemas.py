@@ -89,6 +89,9 @@ class ChatResponse(BaseModel):
 
     # Graph info
     parallel_phases_used: List[str] = ["retrieval", "post_persist"]
+    
+    # Auto Video Trigger
+    trigger_video: bool = False
 
 
 class StreamChunk(BaseModel):

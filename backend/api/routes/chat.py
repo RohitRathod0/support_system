@@ -253,6 +253,7 @@ async def _run_pipeline(
         "errors": final_state.get("errors", []) + out_guard.get("flags", []),
         "evaluation": evaluation,
         "parallel_phases_used": ["retrieval", "post_persist"],
+        "trigger_video": final_state.get("defect_language_detected", False),
     }
 
 
@@ -301,6 +302,7 @@ async def chat_query(chat_req: ChatRequest, request: Request) -> ChatResponse:
         node_timings=result.get("node_timings"),
         errors=result.get("errors", []),
         parallel_phases_used=result.get("parallel_phases_used", []),
+        trigger_video=result.get("trigger_video", False),
     )
 
 
@@ -467,6 +469,7 @@ async def chat_stream(chat_req: ChatRequest, request: Request) -> StreamingRespo
                     "evaluation": evaluation,
                     "cache_hit": False,
                     "errors": complete_state.get("errors", []),
+                    "trigger_video": complete_state.get("defect_language_detected", False),
                 }
             })
 

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useChat } from '../hooks/useChat'
 import MessageBubble from '../components/MessageBubble'
 import ImageUpload from '../components/ImageUpload'
+import VideoReturnSession from '../components/VideoReturnSession'
 import styles from './CustomerPortal.module.css'
 
 const QUICK = [
@@ -23,12 +24,22 @@ export default function CustomerPortal() {
   const [showFeedback, setShowFeedback] = useState(false)
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
+  const [videoTriggerPending, setVideoTriggerPending] = useState(false)
+  const [showVideoSession, setShowVideoSession] = useState(false)
   const bottomRef = useRef()
   const textRef = useRef()
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    if (lastMeta?.trigger_video) {
+      setVideoTriggerPending(true)
+    } else {
+      setVideoTriggerPending(false)
+    }
+  }, [lastMeta])
 
   const submit = () => {
     const q = input.trim()
@@ -44,6 +55,19 @@ export default function CustomerPortal() {
   }
 
   const isEmpty = messages.length === 0
+
+  if (showVideoSession) {
+    return (
+      <div style={{ width: '100vw', height: '100vh' }}>
+        <VideoReturnSession 
+          customerId={userId} 
+          orderId={sessionId || "ORD-" + Math.floor(Math.random()*10000)}
+          productCategory={lastMeta?.issue_category || "General"}
+          orderValue={100}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className={styles.page}>
@@ -103,9 +127,32 @@ export default function CustomerPortal() {
             </motion.div>
           ) : (
             <div className={styles.messages} key="messages">
-              {messages.map((m) => (
-                <MessageBubble key={m.id} message={m} />
-              ))}
+              {messages.map((m) => {
+                const isVideoTrigger = m.role === 'bot' && m.meta?.trigger_video;
+                
+                if (isVideoTrigger && videoTriggerPending) {
+                  const overrideMessage = {
+                    ...m,
+                    text: "I can see this might be a product damage issue. To help you faster, let's do a quick video check. Please click below to show us the product."
+                  };
+                  return (
+                    <div key={m.id}>
+                      <MessageBubble message={overrideMessage} />
+                      <div style={{ paddingLeft: '48px', marginTop: '-8px', marginBottom: '16px' }}>
+                        <button 
+                          className={styles.dashBtn} 
+                          style={{ background: '#3b82f6', color: 'white', border: 'none', cursor: 'pointer', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: '500' }}
+                          onClick={() => setShowVideoSession(true)}
+                        >
+                          Start Video Return
+                        </button>
+                      </div>
+                    </div>
+                  )
+                }
+                
+                return <MessageBubble key={m.id} message={m} />
+              })}
               <div ref={bottomRef} />
             </div>
           )}

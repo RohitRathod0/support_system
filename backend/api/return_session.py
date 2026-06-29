@@ -4,7 +4,8 @@ import json
 import redis.asyncio as aioredis
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
-from livekit.api import RoomServiceClient, AccessToken, VideoGrants
+import livekit.api
+from livekit.api import LiveKitAPI, AccessToken, VideoGrants
 from langgraph.types import Command
 
 from backend.services.livekit_frame_extractor import LiveKitFrameExtractor, FrameExtractionConfig
@@ -67,15 +68,17 @@ async def run_frame_extractor(room_name: str, request: StartSessionRequest) -> N
 async def start_session(request: StartSessionRequest, background_tasks: BackgroundTasks):
     room_name = f"return-{request.order_id}-{request.customer_id}"
     
-    room_client = RoomServiceClient(LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET)
+    api = LiveKitAPI(LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET)
     
-    await room_client.create_room(
-        name=room_name,
-        empty_timeout=300,
-        max_participants=2
+    await api.room.create_room(
+        livekit.api.CreateRoomRequest(
+            name=room_name,
+            empty_timeout=300,
+            max_participants=2
+        )
     )
     
-    await room_client.aclose()
+    await api.aclose()
     
     token = AccessToken(
         LIVEKIT_API_KEY,

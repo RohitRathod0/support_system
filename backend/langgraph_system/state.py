@@ -62,6 +62,12 @@ class SupportState(TypedDict, total=False):
     final_response: str
     processing_time: float
 
+    # ─── CONTRADICTION & DEFECT DETECTION ─────────────────────────────────────
+    contradiction_detected: bool
+    contradiction_type: str
+    contradiction_message: str
+    defect_language_detected: bool
+
     # ─── OBSERVABILITY ────────────────────────────────────────────────────────
     trace_id: str
     node_timings: Dict[str, float]   # node_name → seconds
@@ -100,4 +106,8 @@ def make_initial_state(
         alternative_solutions=[],
         conversation_persisted=False,
         escalation_needed=False,
+        contradiction_detected=False,
+        contradiction_type="",
+        contradiction_message="",
+        defect_language_detected=False,
     )

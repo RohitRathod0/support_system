@@ -29,6 +29,7 @@ from .agents import (
     persist_conversation_node,
     escalation_coordinator_node,
     cx_optimizer_node,
+    detect_contradictions_node,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,15 @@ def route_after_qa(state: SupportState) -> Literal["generate_solution", "persist
     else:
         logger.info(f"QA retry #{qa_attempts} (score={qa_score}) → regenerating solution")
         return "generate_solution"
+
+def route_after_contradiction(state: SupportState) -> str:
+    """
+    If contradiction detected, skip response generation and go straight to persist
+    with the pre-canned contradiction message.
+    """
+    if state.get("contradiction_detected"):
+        return "persist_conversation"
+    return "generate_solution"
 
 
 # ─── GRAPH FACTORY ────────────────────────────────────────────────────────────
@@ -95,13 +105,24 @@ def create_support_graph(
     workflow.add_node("persist_conversation",   persist_with_services)
     workflow.add_node("escalation_coordinator", escalation_coordinator_node)
     workflow.add_node("cx_optimizer",           cx_optimizer_node)
+    workflow.add_node("detect_contradictions",  detect_contradictions_node)
 
     # ── Add edges ──────────────────────────────────────────────────────────────
     workflow.add_edge(START,                    "classify_ticket")
     workflow.add_edge("classify_ticket",        "manage_session")
     workflow.add_edge("manage_session",         "parallel_retrieval")
     workflow.add_edge("parallel_retrieval",     "fuse_information")
-    workflow.add_edge("fuse_information",       "generate_solution")
+    workflow.add_edge("fuse_information",       "detect_contradictions")
+    
+    workflow.add_conditional_edges(
+        "detect_contradictions",
+        route_after_contradiction,
+        {
+            "persist_conversation": "persist_conversation",
+            "generate_solution": "generate_solution"
+        }
+    )
+    
     workflow.add_edge("generate_solution",      "personalize_response")
     workflow.add_edge("personalize_response",   "qa_review")
 

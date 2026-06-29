@@ -54,6 +54,16 @@ async def _acall_llm(system: str, human: str) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 # NODE 1 · TICKET CLASSIFIER
 # ═══════════════════════════════════════════════════════════════════════════════
+def check_for_defect_language(message: str) -> bool:
+    keywords = [
+        "hole", "torn", "tear", "rip", "damaged", "damage", "defective",
+        "defect", "broken", "crack", "cracked", "scratch", "scratched",
+        "stain", "stained", "dent", "dented", "shattered", "burnt",
+        "physical damage", "not working", "stopped working", "fell apart"
+    ]
+    msg_lower = message.lower()
+    return any(kw in msg_lower for kw in keywords)
+
 def classify_ticket_node(state: SupportState) -> Dict[str, Any]:
     """
     Maps to: ticket_classifier agent (agents.yaml)
@@ -61,6 +71,8 @@ def classify_ticket_node(state: SupportState) -> Dict[str, Any]:
     """
     start = time.time()
     query = state["customer_query"]
+    
+    defect_detected = check_for_defect_language(query)
 
     system = """You are a Senior Customer Support Ticket Classifier with 10+ years of experience.
 Analyze the customer query and return a JSON object with EXACTLY these fields:
@@ -106,8 +118,57 @@ Return ONLY valid JSON, no markdown, no extra text."""
         "complexity": data.get("complexity", "Moderate"),
         "special_flags": data.get("special_flags", []),
         "ticket_classification": data,
+        "defect_language_detected": defect_detected,
         "node_timings": timings,
     }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NODE 1.5 · CONTRADICTION DETECTOR
+# ═══════════════════════════════════════════════════════════════════════════════
+def detect_contradictions_node(state: SupportState) -> Dict[str, Any]:
+    start = time.time()
+    current_msg = state["customer_query"].lower()
+    history = state.get("conversation_history", [])
+    
+    damage_keywords = ["hole", "torn", "damaged", "defective", "broken", "scratch", "crack", "stain"]
+    has_damage = any(kw in current_msg for kw in damage_keywords)
+    
+    contradiction_detected = False
+    contradiction_type = ""
+    contradiction_message = ""
+    
+    if has_damage:
+        for turn in history:
+            prev_msg = turn.get("user", "").lower()
+            
+            # Pattern 1
+            if any(kw in prev_msg for kw in ["not arrived", "hasn't arrived", "didn't arrive", "never received", "not received"]):
+                contradiction_detected = True
+                contradiction_type = "arrival_vs_damage"
+                contradiction_message = "You mentioned earlier that your order hasn't arrived, but now you're describing physical damage to the product. Could you clarify — did the order actually arrive? If it did arrive and is damaged, that changes how we can help you."
+                break
+                
+            # Pattern 2
+            if any(kw in prev_msg for kw in ["wrong item", "wrong product", "not what i ordered", "different item"]):
+                contradiction_detected = True
+                contradiction_type = "wrong_item_vs_damage"
+                contradiction_message = "You mentioned receiving the wrong item, but now you're describing damage to it. Could you clarify which issue we should address first — the wrong item or the damage?"
+                break
+                
+    timings = dict(state.get("node_timings") or {})
+    timings["detect_contradictions"] = round(time.time() - start, 2)
+    
+    result = {
+        "contradiction_detected": contradiction_detected,
+        "contradiction_type": contradiction_type,
+        "contradiction_message": contradiction_message,
+        "node_timings": timings,
+    }
+    
+    if contradiction_detected:
+        result["personalized_response"] = contradiction_message
+        
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
