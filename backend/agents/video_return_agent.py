@@ -1,5 +1,6 @@
 import os
 import json
+import redis.asyncio as aioredis
 from typing import TypedDict, List, Dict, Any
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import interrupt
@@ -144,12 +145,41 @@ def classify_return(state: ReturnAgentState) -> ReturnAgentState:
     
     return {}
 
-def route_decision(state: ReturnAgentState) -> ReturnAgentState:
+async def persist_result(session_id: str, final_action: str, decision_reason: str, confidence_score: float) -> None:
+    client = aioredis.from_url(os.getenv("REDIS_URL"))
+    data = {
+        "session_id": session_id,
+        "final_action": final_action,
+        "decision_reason": decision_reason,
+        "confidence_score": confidence_score
+    }
+    key = f"return:result:{session_id}"
+    await client.set(key, json.dumps(data), ex=3600)
+    try:
+        await client.aclose()
+    except AttributeError:
+        await client.close()
+
+async def route_decision(state: ReturnAgentState) -> ReturnAgentState:
     tier = state.get("classification_tier")
     
     if tier == "auto_approve":
+        state["final_action"] = "APPROVED"
+        await persist_result(
+            session_id=state["session_id"],
+            final_action=state["final_action"],
+            decision_reason=state["decision_reason"],
+            confidence_score=state["confidence_score"]
+        )
         return {"final_action": "APPROVED"}
     elif tier == "auto_reject":
+        state["final_action"] = "REJECTED"
+        await persist_result(
+            session_id=state["session_id"],
+            final_action=state["final_action"],
+            decision_reason=state["decision_reason"],
+            confidence_score=state["confidence_score"]
+        )
         return {"final_action": "REJECTED"}
     elif tier == "human_queue":
         vision = state.get("vision_output", {})
@@ -170,6 +200,14 @@ def route_decision(state: ReturnAgentState) -> ReturnAgentState:
                 final_action = "APPROVED"
             elif human_decision.lower() == "reject":
                 final_action = "REJECTED"
+                
+        state["final_action"] = final_action
+        await persist_result(
+            session_id=state["session_id"],
+            final_action=state["final_action"],
+            decision_reason=state["decision_reason"],
+            confidence_score=state["confidence_score"]
+        )
                 
         return {"final_action": final_action}
     

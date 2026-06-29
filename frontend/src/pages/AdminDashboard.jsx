@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import axios from 'axios'
 import {
   Shield, AlertTriangle, CheckCircle2, XCircle, Clock,
   TrendingUp, Package, Bot, MessageSquare, LogOut,
@@ -88,10 +89,20 @@ export default function AdminDashboard() {
   const navigate = useNavigate()
 
   // ── Approve ticket ─────────────────────────────────────────────────────────
-  const approveTicket = async (ticketId) => {
-    setActionLoading(ticketId)
+  const approveTicket = async (ticket) => {
+    setActionLoading(ticket.ticket_id)
+    if (ticket.session_id) {
+      try {
+        await axios.post(`${API}/api/return/decision/${ticket.session_id}`, {
+          session_id: ticket.session_id,
+          decision: 'approve'
+        })
+      } catch (e) {
+        console.error('Failed agent decision update:', e)
+      }
+    }
     try {
-      await fetch(`${API}/api/admin/approve/${ticketId}`, { method: 'POST', headers: authHeaders() })
+      await fetch(`${API}/api/admin/approve/${ticket.ticket_id}`, { method: 'POST', headers: authHeaders() })
       await refresh()
     } catch (e) { console.error(e) }
     setActionLoading(null)
@@ -101,6 +112,16 @@ export default function AdminDashboard() {
   const rejectTicket = async () => {
     if (!rejectModal || !rejectReason.trim()) return
     setActionLoading(rejectModal.ticket_id)
+    if (rejectModal.session_id) {
+      try {
+        await axios.post(`${API}/api/return/decision/${rejectModal.session_id}`, {
+          session_id: rejectModal.session_id,
+          decision: 'reject'
+        })
+      } catch (e) {
+        console.error('Failed agent decision update:', e)
+      }
+    }
     try {
       await fetch(`${API}/api/admin/reject/${rejectModal.ticket_id}`, {
         method: 'POST',
@@ -213,7 +234,7 @@ export default function AdminDashboard() {
                     <TicketCard
                       key={ticket.ticket_id}
                       ticket={ticket}
-                      onApprove={() => approveTicket(ticket.ticket_id)}
+                      onApprove={() => approveTicket(ticket)}
                       onReject={() => { setRejectModal(ticket); setRejectReason('') }}
                       actioning={actionLoading === ticket.ticket_id}
                     />
