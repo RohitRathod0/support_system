@@ -287,9 +287,20 @@ async def validate_image_node(state: SupportState) -> Dict[str, Any]:
     image_base64 = state.get("image_base64", "")
     query = state["customer_query"]
     
-    # Extract order details from query metadata (e.g., "[Order: ORD-123 | Product Name]") if available
+    # Extract order details from query metadata if available
     product_context = "any product"
-    if "[Order:" in query:
+    if "[Selected Order Context:" in query:
+        try:
+            parts = query.split("]")
+            header = parts[0].replace("[Selected Order Context:", "").strip()
+            # header looks like: "ID=ORD-9932-EB | Name=Wireless Noise-Canceling Earbuds | Status=..."
+            h_parts = [p.strip() for p in header.split("|")]
+            for part in h_parts:
+                if part.startswith("Name="):
+                    product_context = part.split("=")[1]
+        except Exception:
+            pass
+    elif "[Order:" in query:
         try:
             parts = query.split("]")
             header = parts[0].replace("[Order:", "").strip()

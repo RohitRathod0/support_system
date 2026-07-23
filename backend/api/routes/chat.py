@@ -510,13 +510,14 @@ async def chat_stream(chat_req: ChatRequest, request: Request) -> StreamingRespo
 # ─── POST /chat/feedback ──────────────────────────────────────────────────────
 @router.post("/feedback")
 async def submit_feedback(request: Request, body: dict) -> dict:
-    """Record customer satisfaction feedback (rating 1–5 required)."""
+    """Record customer satisfaction feedback (rating 1–5 required, query_resolved optional bool)."""
     from datetime import datetime, timezone
 
-    session_id = body.get("session_id", "")
-    customer_id = body.get("customer_id", "")
-    rating = body.get("rating")
-    comment = body.get("comment", "")
+    session_id    = body.get("session_id", "")
+    customer_id   = body.get("customer_id", "")
+    rating        = body.get("rating")
+    comment       = body.get("comment", "")
+    query_resolved = body.get("query_resolved")   # True / False from questionnaire
 
     if rating is None or not isinstance(rating, int) or rating < 1 or rating > 5:
         from fastapi import HTTPException
@@ -524,18 +525,26 @@ async def submit_feedback(request: Request, body: dict) -> dict:
 
     cache = request.app.state.cache_service
     payload = {
-        "session_id": session_id,
-        "customer_id": customer_id,
-        "rating": rating,
-        "comment": comment,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "session_id":    session_id,
+        "customer_id":   customer_id,
+        "rating":        rating,
+        "comment":       comment,
+        "query_resolved": query_resolved,
+        "timestamp":     datetime.now(timezone.utc).isoformat(),
     }
     payload_json = json.dumps(payload)
 
     if cache and cache._available:
-        cache._r.setex(f"feedback:{session_id}", 2592000, payload_json)  # 30 days
+        cache._r.setex(f"feedback:{session_id}", 2592000, payload_json)   # 30 days
         cache._r.rpush("feedback:all", session_id)
         cache._r.incr(f"stats:feedback:rating:{rating}")
+
+        # ── Customer-confirmed resolution → update AI Resolved counter ────────
+        if query_resolved is True:
+            cache._r.incr("stats:ai_resolved")
+        elif query_resolved is False:
+            # Track unresolved count for admin insight
+            cache._r.incr("stats:ai_unresolved")
 
     return {"success": True}
 
@@ -581,23 +590,28 @@ async def get_chat_stats(request: Request) -> dict:
 
     r = cache._r
     total_conversations = int(r.get("stats:total_conversations") or 0)
-    ai_resolved = int(r.get("stats:ai_resolved") or 0)
-    total_feedback = r.llen("feedback:all")
+    ai_resolved         = int(r.get("stats:ai_resolved") or 0)
+    ai_unresolved       = int(r.get("stats:ai_unresolved") or 0)
+    total_feedback      = r.llen("feedback:all")
 
     # Weighted average rating
     total_ratings = 0
-    weighted_sum = 0
+    weighted_sum  = 0
+    rating_dist   = {}
     for star in range(1, 6):
         cnt = int(r.get(f"stats:feedback:rating:{star}") or 0)
         total_ratings += cnt
-        weighted_sum += star * cnt
+        weighted_sum  += star * cnt
+        rating_dist[str(star)] = cnt
     avg_rating = round(weighted_sum / total_ratings, 2) if total_ratings > 0 else 0
 
     return {
         "total_conversations": total_conversations,
-        "ai_resolved": ai_resolved,
-        "avg_rating": avg_rating,
-        "total_feedback": total_feedback,
+        "ai_resolved":         ai_resolved,
+        "ai_unresolved":       ai_unresolved,
+        "avg_rating":          avg_rating,
+        "total_feedback":      total_feedback,
+        "rating_distribution": rating_dist,
     }
 
 

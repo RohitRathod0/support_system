@@ -29,10 +29,10 @@ export function useChat() {
 
   const resetNodes = () => setPipelineNodes(NODES.map(n => ({ ...n, status: 'idle' })))
 
-  const sendMessage = useCallback(async (query, imageBase64 = null, imageUrl = null) => {
+  const sendMessage = useCallback(async (query, backendQuery = null, imageBase64 = null, imageUrl = null) => {
     if (!query.trim() || isLoading) return
 
-    // Add user message
+    // Add user message (user-visible text)
     setMessages(prev => [...prev, {
       id: Date.now(),
       role: 'user',
@@ -48,11 +48,13 @@ export function useChat() {
     const typingId = Date.now() + 1
     setMessages(prev => [...prev, { id: typingId, role: 'typing' }])
 
+    const finalQuery = backendQuery || query
+
     try {
       const body = {
         query: imageBase64
-          ? `${query}\n\n[Customer attached a product image for context]`
-          : query,
+          ? `${finalQuery}\n\n[Customer attached a product image for context]`
+          : finalQuery,
         user_id: userId.current,
         session_id: sessionId,
         image_base64: imageBase64 || undefined,

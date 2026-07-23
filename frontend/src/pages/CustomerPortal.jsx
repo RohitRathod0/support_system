@@ -35,7 +35,7 @@ export default function CustomerPortal() {
   // Resolution + inline feedback
   const [resolutionDetected, setResolutionDetected] = useState(false)
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
-  const [feedbackRating, setFeedbackRating] = useState(null)
+  const [feedbackRating, setFeedbackRating] = useState({ resolved: null, stars: null })
   const [feedbackComment, setFeedbackComment] = useState('')
   const [hoverStar, setHoverStar] = useState(0)
   // Orders
@@ -82,27 +82,28 @@ export default function CustomerPortal() {
     const q = input.trim()
     if (!q && !image) return
 
-    // Prepend order context on first message
-    const orderPrefix = selectedOrder && messages.length === 0
-      ? `[Order: ${selectedOrder.order_id} | ${selectedOrder.product_name} | Tracking: ${selectedOrder.tracking_number}] `
-      : ''
+    const visibleQuery = q || 'I have attached an image with my complaint.'
 
-    // Auto-inject tracking data if query mentions tracking/delivery and order is In Transit
+    // Always include selected order context and live courier data if selected
+    let orderPrefix = ''
     let trackingContext = ''
-    const trackingKeywords = ['tracking', 'track', 'where is', 'delivery', 'not arrived', 'delayed', 'when will', 'status']
-    const hasTrackingIntent = trackingKeywords.some(kw => q.toLowerCase().includes(kw))
-    if (selectedOrder?.status === 'In Transit' && hasTrackingIntent) {
+    if (selectedOrder) {
+      orderPrefix = `[Selected Order Context: ID=${selectedOrder.order_id} | Name=${selectedOrder.product_name} | Status=${selectedOrder.status} | Expected Delivery=${selectedOrder.expected_delivery} | Tracking=${selectedOrder.tracking_number}] `
+      
       try {
         const res = await fetch(`/api/orders/tracking/${selectedOrder.tracking_number}`)
         if (res.ok) {
           const data = await res.json()
-          trackingContext = ` [LIVE TRACKING DATA — use this to answer: ${data.agent_message}]`
+          trackingContext = ` [LIVE COURIER PARTNER DATA — use this to answer: ${data.agent_message}]`
         }
       } catch (_) {}
     }
 
+    const backendQuery = orderPrefix + visibleQuery + trackingContext
+
     sendMessage(
-      orderPrefix + (q || 'I have attached an image with my complaint.') + trackingContext,
+      visibleQuery,
+      backendQuery,
       image?.base64 ?? null,
       image?.url ?? null
     )
@@ -288,70 +289,143 @@ export default function CustomerPortal() {
                 return <MessageBubble key={m.id} message={m} />
               })}
 
-              {/* Inline feedback widget — shown once after resolution */}
+              {/* ── Feedback Questionnaire — shown once after resolution ── */}
               {resolutionDetected && !feedbackSubmitted && (
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '16px' }}>
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>🤖</div>
-                  <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '16px 20px', maxWidth: '480px' }}>
-                    <p style={{ margin: '0 0 12px', color: '#e2e8f0', fontSize: '14px', lineHeight: 1.6 }}>
-                      We're glad your issue is resolved! 😊<br />
-                      How would you rate your experience today?
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '20px' }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 16 }}>🤖</div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.3 }}
+                    style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.08))', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '16px', padding: '20px 24px', maxWidth: '480px', width: '100%' }}
+                  >
+                    <p style={{ margin: '0 0 4px', color: '#c7d2fe', fontSize: '13px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Quick Feedback</p>
+                    <p style={{ margin: '0 0 18px', color: '#e2e8f0', fontSize: '15px', fontWeight: 600 }}>
+                      Help us improve our AI agent 😊
                     </p>
-                    {/* Star row */}
-                    <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
-                      {[1,2,3,4,5].map(s => (
-                        <button
-                          key={s}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '24px', lineHeight: 1,
-                            color: s <= (hoverStar || feedbackRating || 0) ? '#f59e0b' : '#334155',
-                            transition: 'color 0.15s' }}
-                          onMouseEnter={() => setHoverStar(s)}
-                          onMouseLeave={() => setHoverStar(0)}
-                          onClick={() => setFeedbackRating(s)}
-                        >★</button>
-                      ))}
+
+                    {/* Q1 — Was your query resolved? */}
+                    <div style={{ marginBottom: '18px' }}>
+                      <p style={{ margin: '0 0 10px', color: '#94a3b8', fontSize: '13px' }}>
+                        1. Was your query resolved?
+                      </p>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        {[{ label: '✅ Yes', val: true }, { label: '❌ No', val: false }].map(({ label, val }) => (
+                          <button
+                            key={String(val)}
+                            onClick={() => setFeedbackRating(prev => ({ ...prev, resolved: val }))}
+                            style={{
+                              padding: '8px 20px', borderRadius: '8px', border: '1px solid',
+                              cursor: 'pointer', fontSize: '13px', fontWeight: 600, transition: 'all 0.15s',
+                              borderColor: (feedbackRating?.resolved === val) ? (val ? '#10b981' : '#ef4444') : 'rgba(255,255,255,0.12)',
+                              background: (feedbackRating?.resolved === val) ? (val ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)') : 'rgba(255,255,255,0.04)',
+                              color: (feedbackRating?.resolved === val) ? (val ? '#34d399' : '#f87171') : '#94a3b8',
+                            }}
+                          >{label}</button>
+                        ))}
+                      </div>
                     </div>
-                    {/* Comment */}
-                    <textarea
-                      style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px',
-                        color: '#e2e8f0', padding: '8px 12px', fontSize: '13px', resize: 'vertical', minHeight: '56px', boxSizing: 'border-box' }}
-                      placeholder="Any additional comments? (optional)"
-                      value={feedbackComment}
-                      onChange={e => setFeedbackComment(e.target.value)}
-                    />
+
+                    {/* Q2 — Star rating */}
+                    <div style={{ marginBottom: '18px' }}>
+                      <p style={{ margin: '0 0 10px', color: '#94a3b8', fontSize: '13px' }}>
+                        2. How was your experience with the agent? <span style={{ color: '#ef4444' }}>*</span>
+                      </p>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <button
+                            key={s}
+                            onMouseEnter={() => setHoverStar(s)}
+                            onMouseLeave={() => setHoverStar(0)}
+                            onClick={() => setFeedbackRating(prev => ({ ...prev, stars: s }))}
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer', padding: '2px',
+                              fontSize: '28px', lineHeight: 1, transition: 'transform 0.1s',
+                              transform: (hoverStar === s || feedbackRating?.stars === s) ? 'scale(1.2)' : 'scale(1)',
+                              color: s <= (hoverStar || feedbackRating?.stars || 0) ? '#f59e0b' : 'rgba(255,255,255,0.15)',
+                              filter: s <= (hoverStar || feedbackRating?.stars || 0) ? 'drop-shadow(0 0 6px rgba(245,158,11,0.6))' : 'none',
+                            }}
+                          >★</button>
+                        ))}
+                      </div>
+                      {feedbackRating?.stars && (
+                        <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#f59e0b' }}>
+                          {['', 'Poor 😞', 'Fair 😐', 'Good 🙂', 'Great 😊', 'Excellent 🌟'][feedbackRating.stars]}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Q3 — Improvements / comments */}
+                    <div style={{ marginBottom: '18px' }}>
+                      <p style={{ margin: '0 0 8px', color: '#94a3b8', fontSize: '13px' }}>
+                        3. Any improvements or comments? <span style={{ color: '#64748b', fontSize: '11px' }}>(optional)</span>
+                      </p>
+                      <textarea
+                        value={feedbackComment}
+                        onChange={e => {
+                          if (typeof e.target.value === 'string') setFeedbackComment(e.target.value)
+                        }}
+                        placeholder="Share your thoughts… (text only)"
+                        style={{
+                          width: '100%', boxSizing: 'border-box', minHeight: '72px', resize: 'vertical',
+                          background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: '10px', color: '#e2e8f0', padding: '10px 14px', fontSize: '13px',
+                          lineHeight: 1.5, outline: 'none', fontFamily: 'inherit',
+                          transition: 'border-color 0.15s',
+                        }}
+                        onFocus={e => e.target.style.borderColor = 'rgba(99,102,241,0.5)'}
+                        onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                      />
+                    </div>
+
                     {/* Submit */}
                     <button
-                      disabled={feedbackRating === null}
-                      style={{ marginTop: '10px', background: feedbackRating ? '#6366f1' : '#334155', color: 'white', border: 'none',
-                        borderRadius: '8px', padding: '8px 18px', fontSize: '13px', fontWeight: 600, cursor: feedbackRating ? 'pointer' : 'not-allowed',
-                        opacity: feedbackRating ? 1 : 0.5, transition: 'background 0.2s' }}
+                      disabled={!feedbackRating?.stars}
                       onClick={async () => {
+                        if (!feedbackRating?.stars) return
                         try {
-                          await fetch('/chat/feedback', {
+                          await fetch('/api/chat/feedback', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                              session_id: sessionId,
-                              customer_id: userId,
-                              rating: feedbackRating,
-                              comment: feedbackComment,
+                              session_id:    sessionId,
+                              customer_id:   userId,
+                              rating:        feedbackRating.stars,
+                              comment:       feedbackComment,
+                              query_resolved: feedbackRating.resolved ?? null,
                             }),
                           })
                         } catch (_) {}
                         setFeedbackSubmitted(true)
                       }}
-                    >Submit Feedback</button>
-                  </div>
+                      style={{
+                        width: '100%', padding: '10px 0', borderRadius: '10px', border: 'none',
+                        cursor: feedbackRating?.stars ? 'pointer' : 'not-allowed',
+                        background: feedbackRating?.stars ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'rgba(255,255,255,0.06)',
+                        color: feedbackRating?.stars ? 'white' : '#475569',
+                        fontSize: '14px', fontWeight: 700, transition: 'all 0.2s',
+                        boxShadow: feedbackRating?.stars ? '0 4px 15px rgba(99,102,241,0.4)' : 'none',
+                      }}
+                    >
+                      {feedbackRating?.stars ? 'Submit Feedback →' : 'Please rate your experience ★'}
+                    </button>
+                  </motion.div>
                 </div>
               )}
 
-              {/* Thank-you message after submit */}
+              {/* Thank-you after submit */}
               {resolutionDetected && feedbackSubmitted && (
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '16px' }}>
                   <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>🤖</div>
-                  <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '14px 18px', color: '#a7f3d0', fontSize: '14px' }}>
-                    Thank you for your feedback! ⭐
-                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '16px', padding: '14px 18px' }}
+                  >
+                    <p style={{ margin: 0, color: '#34d399', fontSize: '14px', fontWeight: 600 }}>
+                      Thank you for your feedback! ⭐ Your response has been recorded and will help us improve the AI agent.
+                    </p>
+                  </motion.div>
                 </div>
               )}
 

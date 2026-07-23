@@ -48,12 +48,14 @@ function useAdminData() {
   const refresh = useCallback(async () => {
     setLoading(true)
     try {
-      const [pRes, rRes, prRes, aiRes, fbRes] = await Promise.all([
-        fetch(`${API}/api/admin/pending`,              { headers: authHeaders() }),
-        fetch(`${API}/api/admin/resolved?limit=20`,    { headers: authHeaders() }),
-        fetch(`${API}/api/admin/product-analytics`,    { headers: authHeaders() }),
-        fetch(`${API}/api/admin/ai-resolution-summary`,{ headers: authHeaders() }),
-        fetch(`${API}/api/admin/feedback-feed`,        { headers: authHeaders() }),
+      const [pRes, rRes, prRes, aiRes, fbRes, sRes, fRes] = await Promise.all([
+        fetch(`${API}/api/admin/pending`,               { headers: authHeaders() }),
+        fetch(`${API}/api/admin/resolved?limit=20`,     { headers: authHeaders() }),
+        fetch(`${API}/api/admin/product-analytics`,     { headers: authHeaders() }),
+        fetch(`${API}/api/admin/ai-resolution-summary`, { headers: authHeaders() }),
+        fetch(`${API}/api/admin/feedback-feed`,         { headers: authHeaders() }),
+        fetch(`${API}/api/chat/stats`),
+        fetch(`${API}/api/chat/feedback/list`),
       ])
       if (pRes.status === 401) { localStorage.removeItem('admin_token'); window.location.href = '/admin/login'; return }
       const [p, r, pr, ai, fb] = await Promise.all([pRes.json(), rRes.json(), prRes.json(), aiRes.json(), fbRes.json()])
@@ -62,6 +64,8 @@ function useAdminData() {
       setProducts(pr)
       setAiSummary(ai)
       setFeedback(fb)
+      if (sRes.ok) setChatStats(await sRes.json())
+      if (fRes.ok) setFeedbackList(await fRes.json())
       setLastRefresh(new Date())
     } catch (e) {
       console.error('Admin data fetch error:', e)
@@ -75,23 +79,6 @@ function useAdminData() {
     const t = setInterval(refresh, 30000)
     return () => clearInterval(t)
   }, [refresh])
-
-  // Fetch real chat stats + feedback list on mount
-  useEffect(() => {
-    async function loadChatData() {
-      try {
-        const [sRes, fRes] = await Promise.all([
-          fetch(`${API}/api/chat/stats`),
-          fetch(`${API}/api/chat/feedback/list`),
-        ])
-        if (sRes.ok) setChatStats(await sRes.json())
-        if (fRes.ok) setFeedbackList(await fRes.json())
-      } catch (e) {
-        console.error('Chat stats fetch error:', e)
-      }
-    }
-    loadChatData()
-  }, [])
 
   return { pending, resolved, products, aiSummary, feedback, loading, lastRefresh, refresh, chatStats, feedbackList }
 }
@@ -407,7 +394,7 @@ export default function AdminDashboard() {
                   message="No AI data yet" sub="Process some customer queries to see AI metrics here." />
               ) : (
                 <>
-                  {/* KPI row — prefer real chatStats over aiSummary fallback */}
+                  {/* KPI row — prefer real chatStats (customer-feedback driven) over aiSummary fallback */}
                   <div className={styles.kpiRow}>
                     <KpiCard
                       label="Total Conversations"
@@ -416,25 +403,24 @@ export default function AdminDashboard() {
                       color="#6366f1"
                     />
                     <KpiCard
-                      label="AI Resolved"
+                      label="AI Resolved ✅"
                       value={chatStats?.ai_resolved ?? aiSummary.overview?.ai_resolved ?? 0}
                       icon={<CheckCircle2 size={20} />}
                       color="#10b981"
-                      sub={`${chatStats && chatStats.total_conversations > 0
-                        ? Math.round(chatStats.ai_resolved / chatStats.total_conversations * 100)
-                        : (aiSummary.overview?.ai_success_rate ?? 0)}% success rate`}
+                      sub="Customer-confirmed resolutions"
+                    />
+                    <KpiCard
+                      label="Not Resolved ❌"
+                      value={chatStats?.ai_unresolved ?? 0}
+                      icon={<XCircle size={20} />}
+                      color="#ef4444"
+                      sub="Customers said 'No' in feedback"
                     />
                     <KpiCard
                       label="Escalated to Human"
                       value={aiSummary.overview?.escalated_to_human ?? 0}
                       icon={<AlertTriangle size={20} />}
                       color="#f59e0b"
-                    />
-                    <KpiCard
-                      label="Pending Admin Review"
-                      value={aiSummary.overview?.pending_admin_approval ?? 0}
-                      icon={<Clock size={20} />}
-                      color="#ef4444"
                     />
                     <KpiCard
                       label="Resolved by Admin"
@@ -444,7 +430,7 @@ export default function AdminDashboard() {
                     />
                   </div>
 
-                  {/* Quality + FCR */}
+                  {/* Quality + FCR + Rating Distribution */}
                   <div className={styles.aiRow2}>
                     <div className={styles.qualityCard}>
                       <div className={styles.cardTitle}>Quality Metrics</div>
@@ -452,8 +438,50 @@ export default function AdminDashboard() {
                         <QualityMetric label="Avg QA Score" value={`${aiSummary.quality?.avg_qa_score ?? '—'}/10`} color="#6366f1" />
                         <QualityMetric label="Avg Response Time" value={`${aiSummary.quality?.avg_processing_time_s ?? '—'}s`} color="#10b981" />
                         <QualityMetric label="Cache Hit Rate" value={`${aiSummary.quality?.cache_hit_rate ?? 0}%`} color="#f59e0b" />
-                        <QualityMetric label="Avg Rating" value={chatStats?.avg_rating ? `${chatStats.avg_rating}/5` : '—'} color="#f59e0b" />
+                        <QualityMetric label="Avg Rating" value={chatStats?.avg_rating ? `${chatStats.avg_rating}/5 ★` : '—'} color="#f59e0b" />
+                        <QualityMetric
+                          label="Resolution Rate"
+                          value={(() => {
+                            const res = chatStats?.ai_resolved ?? 0
+                            const unr = chatStats?.ai_unresolved ?? 0
+                            const total = res + unr
+                            return total > 0 ? `${Math.round(res / total * 100)}%` : '—'
+                          })()}
+                          color="#10b981"
+                        />
+                        <QualityMetric label="Total Feedback" value={chatStats?.total_feedback ?? 0} color="#6366f1" />
                       </div>
+
+                      {/* Star rating distribution */}
+                      {chatStats?.rating_distribution && (
+                        <div style={{ marginTop: '20px' }}>
+                          <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Rating Distribution (Customer Feedback)
+                          </div>
+                          {[5, 4, 3, 2, 1].map(star => {
+                            const count = chatStats.rating_distribution[String(star)] ?? 0
+                            const total = chatStats.total_feedback || 1
+                            const pct = Math.round(count / total * 100)
+                            return (
+                              <div key={star} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                                <span style={{ fontSize: '12px', color: '#f59e0b', width: '16px', textAlign: 'right' }}>{star}★</span>
+                                <div style={{ flex: 1, height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${pct}%` }}
+                                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                                    style={{
+                                      height: '100%', borderRadius: '4px',
+                                      background: star >= 4 ? 'linear-gradient(90deg,#10b981,#34d399)' : star === 3 ? '#f59e0b' : 'linear-gradient(90deg,#ef4444,#f97316)',
+                                    }}
+                                  />
+                                </div>
+                                <span style={{ fontSize: '12px', color: '#64748b', width: '36px' }}>{count} ({pct}%)</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
 
                     <div className={styles.fcrCard}>
@@ -486,12 +514,16 @@ export default function AdminDashboard() {
                   <span>Avg: <strong>{chatStats?.avg_rating ?? feedback.summary?.avg_rating ?? '—'}/5</strong></span>
                 </div>
                 <div className={styles.summaryPill} style={{ borderColor: '#10b981' }}>
-                  <ThumbsUp size={14} color="#10b981" />
-                  <span>Total feedback: <strong>{chatStats?.total_feedback ?? feedback.summary?.high_rated_count ?? 0}</strong></span>
+                  <CheckCircle2 size={14} color="#10b981" />
+                  <span>Resolved: <strong>{chatStats?.ai_resolved ?? 0}</strong></span>
                 </div>
                 <div className={styles.summaryPill} style={{ borderColor: '#ef4444' }}>
-                  <ThumbsDown size={14} color="#ef4444" />
-                  <span>Low rated: <strong>{(feedbackList.length > 0 ? feedbackList : (feedback.feedback || [])).filter(f => f.rating <= 2).length}</strong></span>
+                  <XCircle size={14} color="#ef4444" />
+                  <span>Unresolved: <strong>{chatStats?.ai_unresolved ?? 0}</strong></span>
+                </div>
+                <div className={styles.summaryPill} style={{ borderColor: '#64748b' }}>
+                  <ThumbsUp size={14} color="#64748b" />
+                  <span>Total responses: <strong>{chatStats?.total_feedback ?? 0}</strong></span>
                 </div>
               </div>
 
@@ -541,10 +573,24 @@ export default function AdminDashboard() {
                             {fb.timestamp ? new Date(fb.timestamp).toLocaleString() : '—'}
                           </span>
                         </div>
+
+                        {/* Query resolved status */}
+                        {fb.query_resolved !== undefined && fb.query_resolved !== null && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '6px 0', fontSize: '12px' }}>
+                            <span style={{ color: '#64748b' }}>Query resolved:</span>
+                            {fb.query_resolved === true
+                              ? <span style={{ color: '#34d399', fontWeight: 600 }}>✅ Yes</span>
+                              : <span style={{ color: '#f87171', fontWeight: 600 }}>❌ No</span>
+                            }
+                          </div>
+                        )}
+
                         {fb.comment && <p className={styles.feedbackComment}>"{fb.comment}"</p>}
                         <div className={styles.feedbackTags}>
+                          {fb.query_resolved === false && <span className={styles.tagRed}>Unresolved</span>}
+                          {fb.query_resolved === true && <span className={styles.tagGreen}>Resolved ✓</span>}
                           {fb.rating <= 2 && <span className={styles.tagRed}>Low satisfaction</span>}
-                          {fb.rating >= 4 && <span className={styles.tagGreen}>Satisfied</span>}
+                          {fb.rating >= 4 && !fb.query_resolved && <span className={styles.tagGreen}>Satisfied</span>}
                         </div>
                       </motion.div>
                     ))}
