@@ -17,6 +17,12 @@ const QUICK = [
   { icon: '📱', text: 'The app keeps crashing' },
 ]
 
+const CATEGORY_EMOJI = {
+  'Home Appliances': '🫙',
+  'Clothing': '👕',
+  'Electronics': '🎧',
+}
+
 export default function CustomerPortal() {
   const { messages, isLoading, sendMessage, clearChat, lastMeta, userId, sessionId } = useChat()
   const [input, setInput] = useState('')
@@ -32,8 +38,19 @@ export default function CustomerPortal() {
   const [feedbackRating, setFeedbackRating] = useState(null)
   const [feedbackComment, setFeedbackComment] = useState('')
   const [hoverStar, setHoverStar] = useState(0)
+  // Orders
+  const [orders, setOrders] = useState([])
+  const [selectedOrder, setSelectedOrder] = useState(null)
   const bottomRef = useRef()
   const textRef = useRef()
+
+  // Fetch mock orders on mount
+  useEffect(() => {
+    fetch('/api/orders/')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.orders) setOrders(data.orders) })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -61,10 +78,34 @@ export default function CustomerPortal() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastMeta])
 
-  const submit = () => {
+  const submit = async () => {
     const q = input.trim()
     if (!q && !image) return
-    sendMessage(q || 'I have attached an image with my complaint.', image?.base64 ?? null, image?.url ?? null)
+
+    // Prepend order context on first message
+    const orderPrefix = selectedOrder && messages.length === 0
+      ? `[Order: ${selectedOrder.order_id} | ${selectedOrder.product_name} | Tracking: ${selectedOrder.tracking_number}] `
+      : ''
+
+    // Auto-inject tracking data if query mentions tracking/delivery and order is In Transit
+    let trackingContext = ''
+    const trackingKeywords = ['tracking', 'track', 'where is', 'delivery', 'not arrived', 'delayed', 'when will', 'status']
+    const hasTrackingIntent = trackingKeywords.some(kw => q.toLowerCase().includes(kw))
+    if (selectedOrder?.status === 'In Transit' && hasTrackingIntent) {
+      try {
+        const res = await fetch(`/api/orders/tracking/${selectedOrder.tracking_number}`)
+        if (res.ok) {
+          const data = await res.json()
+          trackingContext = ` [LIVE TRACKING DATA — use this to answer: ${data.agent_message}]`
+        }
+      } catch (_) {}
+    }
+
+    sendMessage(
+      orderPrefix + (q || 'I have attached an image with my complaint.') + trackingContext,
+      image?.base64 ?? null,
+      image?.url ?? null
+    )
     setInput('')
     setImage(null)
     textRef.current?.focus()
@@ -130,20 +171,93 @@ export default function CustomerPortal() {
               <div className={styles.welcomeIcon}>🤖</div>
               <h1 className={styles.welcomeTitle}>How can I help you today?</h1>
               <p className={styles.welcomeSub}>
-                Describe your issue in detail — or attach a <strong>product photo</strong> to help us understand the problem.
-                Our AI processes your request through 10 specialized agents and stays strictly within company policy.
+                Select an order below to get support for that purchase, then describe your issue.
+                Our AI stays strictly within your order context.
               </p>
-              <div className={styles.quickGrid}>
-                {QUICK.map((q) => (
-                  <button
-                    key={q.text}
-                    className={styles.quickBtn}
-                    onClick={() => { setInput(q.text); textRef.current?.focus() }}
-                  >
-                    <span>{q.icon}</span> {q.text}
-                  </button>
-                ))}
-              </div>
+
+              {/* ── Order Cards ── */}
+              {orders.length > 0 && (
+                <div className={styles.ordersSection}>
+                  <div className={styles.ordersSectionTitle}>📦 Your Recent Orders</div>
+                  <div className={styles.ordersGrid}>
+                    {orders.map(order => (
+                      <button
+                        key={order.order_id}
+                        className={`${styles.orderCard} ${selectedOrder?.order_id === order.order_id ? styles.selected : ''}`}
+                        onClick={() => {
+                          setSelectedOrder(order)
+                          textRef.current?.focus()
+                        }}
+                      >
+                        <span className={styles.orderCardEmoji}>{CATEGORY_EMOJI[order.category] || '📦'}</span>
+                        <div className={styles.orderCardName}>{order.product_name}</div>
+                        <div className={styles.orderCardMeta}>
+                          <span className={styles.orderCardId}>{order.order_id}</span>
+                          <span className={styles.orderCardDate}>
+                            Ordered: {new Date(order.order_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                          <span className={styles.orderCardDate} style={{ color: order.status === 'In Transit' ? '#f59e0b' : '#10b981' }}>
+                            {order.status === 'Delivered' ? '✓ Delivered:' : '🚚 Expected:'}{' '}
+                            {new Date(order.expected_delivery).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                          <span className={styles.orderCardId} style={{ color: '#64748b', fontSize: '9px', letterSpacing: '0.06em' }}>
+                            🔍 {order.tracking_number}
+                          </span>
+                        </div>
+
+                        {/* Mini shipment timeline for In Transit orders */}
+                        {order.status === 'In Transit' && order.timeline && (
+                          <div style={{ marginTop: '10px', marginBottom: '4px' }}>
+                            {order.timeline.map((step, i) => (
+                              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '3px' }}>
+                                <div style={{
+                                  width: '12px', height: '12px', borderRadius: '50%', flexShrink: 0, marginTop: '1px',
+                                  background: step.done ? '#6366f1' : 'rgba(255,255,255,0.1)',
+                                  border: step.done ? 'none' : '1px solid rgba(255,255,255,0.2)',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                  {step.done && <span style={{ fontSize: '7px', color: 'white' }}>✓</span>}
+                                </div>
+                                <span style={{ fontSize: '10px', color: step.done ? '#cbd5e1' : '#475569', lineHeight: 1.3 }}>
+                                  {step.event}
+                                  <span style={{ color: '#334155', marginLeft: '4px' }}>· {step.date}</span>
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className={styles.orderCardFooter}>
+                          <span className={styles.orderCardAmount}>₹{order.amount_rupees.toLocaleString('en-IN')}</span>
+                          <span className={`${styles.orderCardStatus} ${order.status === 'Delivered' ? styles.delivered : styles.transit}`}>
+                            {order.status}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Quick actions (only shown if an order is selected) ── */}
+              {selectedOrder && (
+                <>
+                  <p style={{ fontSize: '12px', color: '#6366f1', fontWeight: 600, marginBottom: '-8px' }}>
+                    ✓ {selectedOrder.product_name} selected — pick a quick issue or type below
+                  </p>
+                  <div className={styles.quickGrid}>
+                    {QUICK.map((q) => (
+                      <button
+                        key={q.text}
+                        className={styles.quickBtn}
+                        onClick={() => { setInput(q.text); textRef.current?.focus() }}
+                      >
+                        <span>{q.icon}</span> {q.text}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </motion.div>
           ) : (
             <div className={styles.messages} key="messages">
@@ -252,7 +366,7 @@ export default function CustomerPortal() {
         {/* Image attachment */}
         {image && (
           <div className={styles.attachPreview}>
-            <img src={image.url.startsWith('/uploads') ? `http://localhost:8000${image.url}` : image.url} alt="attachment" />
+            <img src={image.url.startsWith('/uploads') ? `http://127.0.0.1:8000${image.url}` : image.url} alt="attachment" />
             <button onClick={() => setImage(null)}>✕</button>
           </div>
         )}

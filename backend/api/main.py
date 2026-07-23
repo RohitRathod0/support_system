@@ -159,6 +159,9 @@ app.include_router(sessions_router)
 app.include_router(admin_router)
 app.include_router(return_session_router)
 
+from .routes.orders import router as orders_router
+app.include_router(orders_router)
+
 # ─── Serve uploaded images ───────────────────────────────────────────────────
 _uploads_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads")
 os.makedirs(_uploads_dir, exist_ok=True)
