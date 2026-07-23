@@ -91,8 +91,25 @@ def detect_resolution(message: str) -> bool:
         "great help", "good help", "my problem is solved",
     ]
     msg_lower = message.lower()
+    
+    # Check for negations / escalation requests first
+    negations = [
+        "not resolved", "isn't resolved", "unresolved", "not satisfied", 
+        "not solved", "didn't help", "does not help", "doesn't help",
+        "representative", "human", "agent", "real person"
+    ]
+    if any(n in msg_lower for n in negations):
+        return False
+
     return any(s in msg_lower for s in signals)
 
+def check_for_escalation_language(message: str) -> bool:
+    keywords = [
+        "representative", "human", "real person", "agent", "manager", "supervisor",
+        "not resolved", "unresolved", "not satisfied", "not helping", "useless", "escalate"
+    ]
+    msg_lower = message.lower()
+    return any(kw in msg_lower for kw in keywords)
 
 def check_for_defect_language(message: str) -> bool:
     keywords = [
@@ -114,6 +131,7 @@ def classify_ticket_node(state: SupportState) -> Dict[str, Any]:
     
     defect_detected = check_for_defect_language(query)
     resolution_detected = detect_resolution(query)
+    escalation_requested = check_for_escalation_language(query)
 
     system = """You are a Senior Customer Support Ticket Classifier with 10+ years of experience.
 Analyze the customer query and return a JSON object with EXACTLY these fields:
@@ -148,6 +166,13 @@ Return ONLY valid JSON, no markdown, no extra text."""
             "recommended_team": "Tier1",
             "reasoning": "Classification parsing failed, using defaults",
         }
+
+    # Force escalation flag if explicit language is detected
+    if escalation_requested:
+        flags = data.get("special_flags", [])
+        if "Escalation" not in flags:
+            flags.append("Escalation")
+        data["special_flags"] = flags
 
     timings = dict(state.get("node_timings") or {})
     timings["classify_ticket"] = round(time.time() - start, 2)
@@ -607,6 +632,22 @@ def generate_solution_node(state: SupportState) -> Dict[str, Any]:
         qa_result = state.get("qa_result", {})
         retry_note = f"\n⚠️ RETRY #{attempts}: Previous QA score was {state.get('qa_score', 0)}/10. Issues: {qa_result.get('improvement_notes', 'improve completeness and accuracy.')}"
 
+    # Escalation override
+    special_flags = state.get("special_flags", [])
+    if not special_flags:
+        # Fallback to check classification data if top-level isn't set yet
+        special_flags = state.get("ticket_classification", {}).get("special_flags", [])
+        
+    escalation_override = ""
+    if "Escalation" in special_flags:
+        escalation_override = (
+            "\nCRITICAL ESCALATION PROTOCOL:\n"
+            "The customer has explicitly requested to speak to a representative, or stated their query is unresolved.\n"
+            "You MUST abort the standard troubleshooting flow. Your solution_overview MUST acknowledge their request "
+            "and state that you are transferring them to a human representative. You MUST also politely ask them to "
+            "provide feedback on their experience so far while they wait."
+        )
+
     system = f"""You are a Solution Development Specialist. Generate a solution that STRICTLY follows company policies.
 
 CRITICAL POLICY CONSTRAINTS — YOU CANNOT EXCEED THESE:
@@ -614,6 +655,7 @@ CRITICAL POLICY CONSTRAINTS — YOU CANNOT EXCEED THESE:
 
 IMAGE VALIDATION STATUS:
 {image_validation_block}
+{escalation_override}
 
 MANDATORY RULES:
 - NEVER promise a refund beyond what the policy allows (e.g. if policy says 30 days, do NOT offer refunds after 30 days)

@@ -64,16 +64,20 @@ export default function CustomerPortal() {
     }
   }, [lastMeta])
 
-  // Resolution detection
+  // Resolution / Escalation detection (both trigger the feedback flow)
   useEffect(() => {
-    if (lastMeta?.resolution_detected && !resolutionDetected && !feedbackSubmitted) {
+    const shouldShowFeedback = lastMeta?.resolution_detected || lastMeta?.escalation_needed
+    
+    if (shouldShowFeedback && !resolutionDetected && !feedbackSubmitted) {
       setResolutionDetected(true)
-      // Fire and forget the resolve call
-      fetch('/chat/resolve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, customer_id: userId, resolved_by: 'ai' }),
-      }).catch(() => {})
+      // Only auto-resolve if it was an actual resolution, not an escalation
+      if (lastMeta?.resolution_detected) {
+        fetch('/api/chat/resolve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId, customer_id: userId, resolved_by: 'ai' }),
+        }).catch(() => {})
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastMeta])
