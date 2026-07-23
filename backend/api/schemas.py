@@ -16,6 +16,7 @@ class ChatRequest(BaseModel):
     query: str = Field(..., min_length=3, max_length=2000, description="Customer's support query")
     user_id: Optional[str] = Field(None, description="Customer identifier (generated if omitted)")
     session_id: Optional[str] = Field(None, description="Session ID for continuity")
+    image_base64: Optional[str] = Field(None, description="Base64 encoded product image for damage analysis")
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
     @validator("query")
@@ -81,6 +82,9 @@ class ChatResponse(BaseModel):
     # Escalation
     escalation_needed: bool = False
     escalation_report: Optional[Dict[str, Any]] = None
+
+    # Image Validation
+    image_validation_result: Optional[Dict[str, Any]] = None
 
     # Observability
     node_timings: Optional[Dict[str, float]] = None

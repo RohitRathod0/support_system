@@ -14,6 +14,10 @@ class SupportState(TypedDict, total=False):
     session_id: str
     current_year: str
     timestamp: str
+    image_base64: str
+
+    # ─── IMAGE VALIDATION ────────────────────────────────────────────────────
+    image_validation_result: Dict[str, Any]
 
     # ─── PHASE 1 · TICKET CLASSIFICATION ─────────────────────────────────────
     urgency_level: str          # Critical / High / Medium / Low
@@ -86,6 +90,7 @@ def make_initial_state(
     user_id: str,
     session_id: str,
     trace_id: str,
+    image_base64: str = "",
 ) -> SupportState:
     """Factory: create a fresh state from an incoming request."""
     return SupportState(
@@ -95,6 +100,8 @@ def make_initial_state(
         current_year=str(datetime.now().year),
         timestamp=datetime.now().isoformat(),
         trace_id=trace_id,
+        image_base64=image_base64,
+        image_validation_result={},
         node_timings={},
         errors=[],
         qa_attempts=0,

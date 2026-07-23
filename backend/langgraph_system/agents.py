@@ -51,6 +51,33 @@ async def _acall_llm(system: str, human: str) -> str:
         return f"[LLM ERROR: {e}]"
 
 
+async def _acall_vision_llm(system: str, human: str, image_base64: str) -> str:
+    """Async multimodal LLM call for image validation using Pixtral."""
+    llm = ChatMistralAI(
+        model="pixtral-12b-2409",
+        api_key=os.getenv("MISTRAL_API_KEY"),
+        temperature=0.2,
+    )
+    try:
+        messages = [
+            SystemMessage(content=system),
+            HumanMessage(
+                content=[
+                    {"type": "text", "text": human},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"},
+                    },
+                ]
+            ),
+        ]
+        response = await llm.ainvoke(messages)
+        return response.content.strip()
+    except Exception as e:
+        logger.error(f"Async Vision LLM call failed: {e}")
+        return f"[VISION ERROR: {e}]"
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # NODE 1 · TICKET CLASSIFIER
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -242,6 +269,91 @@ Recent history: {json.dumps(history[-3:] if history else [])}"""
             "expertise": session_data.get("expertise_level", "Intermediate"),
             "format": session_data.get("response_format", "DetailedSteps"),
         },
+        "node_timings": timings,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NODE 2.5 · IMAGE VALIDATION NODE (Pixtral Multimodal)
+# ═══════════════════════════════════════════════════════════════════════════════
+async def validate_image_node(state: SupportState) -> Dict[str, Any]:
+    """
+    Task: Analyze the user's uploaded base64 image using Pixtral vision model.
+    Checks:
+      1. If the image matches the selected product category/item type.
+      2. If there is visible physical damage or defect.
+    """
+    start = time.time()
+    image_base64 = state.get("image_base64", "")
+    query = state["customer_query"]
+    
+    # Extract order details from query metadata (e.g., "[Order: ORD-123 | Product Name]") if available
+    product_context = "any product"
+    if "[Order:" in query:
+        try:
+            parts = query.split("]")
+            header = parts[0].replace("[Order:", "").strip()
+            # header looks like: "ORD-123 | Ninja Pro Blender 1000W | Tracking: TRK..."
+            h_parts = [p.strip() for p in header.split("|")]
+            if len(h_parts) >= 2:
+                product_context = h_parts[1]
+        except Exception:
+            pass
+
+    timings = dict(state.get("node_timings") or {})
+    
+    if not image_base64:
+        timings["validate_image"] = round(time.time() - start, 2)
+        return {
+            "image_validation_result": {
+                "matches_product": False,
+                "damage_detected": False,
+                "damage_description": "No image was uploaded by the customer.",
+                "confidence_score": 0.0,
+                "reasoning": "No image provided."
+            },
+            "node_timings": timings,
+        }
+
+    system = f"""You are a Visual Quality Assurance Specialist. 
+Analyze the image provided by the user and determine:
+1. Does it show the product: "{product_context}"? (Or a similar category, e.g., electronics, clothing, home appliances)
+2. Is there visible damage, defect, tears, scratches, or wear on the product?
+
+Return a JSON object with EXACTLY these fields:
+{{
+  "matches_product": true|false,
+  "damage_detected": true|false,
+  "damage_description": "description of the item and any damage found, or 'none'",
+  "confidence_score": 0.0 to 1.0,
+  "reasoning": "explanation for the match and damage check"
+}}
+Return ONLY valid JSON. No markdown, no wrapping."""
+
+    human = f"Product context: {product_context}\nUser's message context: {query}"
+    raw = await _acall_vision_llm(system, human, image_base64)
+    
+    # Strip markdown code blocks if the LLM returned them
+    if raw.startswith("```json"):
+        raw = raw.replace("```json", "", 1).rstrip("`").strip()
+    elif raw.startswith("```"):
+        raw = raw.replace("```", "", 1).rstrip("`").strip()
+
+    try:
+        validation_data = json.loads(raw)
+    except Exception:
+        # Graceful fallback
+        validation_data = {
+            "matches_product": True,
+            "damage_detected": "damage" in query.lower() or "defect" in query.lower(),
+            "damage_description": "Fallback processing due to parsing failure",
+            "confidence_score": 0.5,
+            "reasoning": "Failed to parse vision model response.",
+        }
+
+    timings["validate_image"] = round(time.time() - start, 2)
+    return {
+        "image_validation_result": validation_data,
         "node_timings": timings,
     }
 
@@ -466,6 +578,19 @@ def generate_solution_node(state: SupportState) -> Dict[str, Any]:
 
     policy_block = "\n".join(policy_constraints) if policy_constraints else "Standard company policies apply."
 
+    image_result = state.get("image_validation_result", {})
+    image_validation_block = "No image validation result available."
+    if image_result:
+        image_validation_block = (
+            f"Uploaded Image Validation Status:\n"
+            f"- Image Uploaded: {'Yes' if image_result.get('confidence_score', 0.0) > 0.0 else 'No'}\n"
+            f"- Matches Selected Product: {image_result.get('matches_product', False)}\n"
+            f"- Damage/Defect Detected: {image_result.get('damage_detected', False)}\n"
+            f"- Damage Description: {image_result.get('damage_description', 'N/A')}\n"
+            f"- Confidence Score: {image_result.get('confidence_score', 0.0)}\n"
+            f"- Reasoning: {image_result.get('reasoning', '')}"
+        )
+
     retry_note = ""
     if attempts > 0:
         qa_result = state.get("qa_result", {})
@@ -476,6 +601,9 @@ def generate_solution_node(state: SupportState) -> Dict[str, Any]:
 CRITICAL POLICY CONSTRAINTS — YOU CANNOT EXCEED THESE:
 {policy_block}
 
+IMAGE VALIDATION STATUS:
+{image_validation_block}
+
 MANDATORY RULES:
 - NEVER promise a refund beyond what the policy allows (e.g. if policy says 30 days, do NOT offer refunds after 30 days)
 - NEVER approve amounts beyond the agent authorization level
@@ -483,7 +611,13 @@ MANDATORY RULES:
 - If the customer's request exceeds policy limits, clearly but empathetically explain the policy boundary
 - Always tell the customer what CAN be done within policy, not just what cannot
 - If escalation is required by policy, include that as a step
-- CRITICAL: If the customer reports a damaged, leaking, or defective product and requests a return, refund, or replacement, you MUST ask them to provide photographic proof (images) before proceeding with any return processing.
+- CRITICAL IMAGE RETURN PROTOCOLS:
+  1. If the customer reports a damaged, leaking, defective, or incorrect product and requests a return/refund/replacement:
+     * Check the 'Uploaded Image Validation Status' above.
+     * If no image has been uploaded (or confidence score is 0.0), you MUST instruct the customer to upload a clear photograph of the product using the image upload tool. Explain that we need this photo to verify the condition and process the return. Do NOT authorize a refund/return without an image.
+     * If an image was uploaded but 'Matches Selected Product' is false, inform them that the uploaded image does not appear to match the product in the order and ask them to verify and upload the correct image.
+     * If the image was uploaded, matches the product, but 'Damage/Defect Detected' is false, politely state that we could not verify any physical damage from the photo and ask them to upload a clearer close-up.
+     * If the image was uploaded, matches the product, and 'Damage/Defect Detected' is true, proceed to authorize the return/refund/replacement in accordance with category policy.
 
 Return JSON:
 {{

@@ -13,7 +13,9 @@ export function useChat() {
   const NODES = [
     { id: 'guardrails',              label: 'Guardrails',           icon: '🛡️', parallel: false },
     { id: 'classify_ticket',         label: 'Ticket Classifier',    icon: '🏷️', parallel: false },
+    { id: 'detect_contradictions',  label: 'Contradiction Check',  icon: '🔍', parallel: false },
     { id: 'manage_session',          label: 'Session Manager',      icon: '👤', parallel: false },
+    { id: 'validate_image',          label: 'Image Validator',      icon: '📸', parallel: false },
     { id: 'parallel_retrieval',      label: 'Parallel Retrieval',   icon: '⚡', parallel: true  },
     { id: 'fuse_information',        label: 'Info Fusion',          icon: '🔗', parallel: false },
     { id: 'generate_solution',       label: 'Solution Generator',   icon: '💡', parallel: false },

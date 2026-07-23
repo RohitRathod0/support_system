@@ -30,6 +30,7 @@ from .agents import (
     escalation_coordinator_node,
     cx_optimizer_node,
     detect_contradictions_node,
+    validate_image_node,
 )
 
 logger = logging.getLogger(__name__)
@@ -96,7 +97,9 @@ def create_support_graph(
 
     # ── Add nodes ──────────────────────────────────────────────────────────────
     workflow.add_node("classify_ticket",        classify_ticket_node)
+    workflow.add_node("detect_contradictions",  detect_contradictions_node)
     workflow.add_node("manage_session",         manage_session_node)
+    workflow.add_node("validate_image",         validate_image_node)
     workflow.add_node("parallel_retrieval",     parallel_retrieval_with_services)
     workflow.add_node("fuse_information",       fuse_information_node)
     workflow.add_node("generate_solution",      generate_solution_node)
@@ -105,12 +108,12 @@ def create_support_graph(
     workflow.add_node("persist_conversation",   persist_with_services)
     workflow.add_node("escalation_coordinator", escalation_coordinator_node)
     workflow.add_node("cx_optimizer",           cx_optimizer_node)
-    workflow.add_node("detect_contradictions",  detect_contradictions_node)
 
     # ── Add edges ──────────────────────────────────────────────────────────────
     workflow.add_edge(START,                    "classify_ticket")
     workflow.add_edge("classify_ticket",        "manage_session")
-    workflow.add_edge("manage_session",         "parallel_retrieval")
+    workflow.add_edge("manage_session",         "validate_image")
+    workflow.add_edge("validate_image",         "parallel_retrieval")
     workflow.add_edge("parallel_retrieval",     "fuse_information")
     workflow.add_edge("fuse_information",       "detect_contradictions")
     
@@ -258,7 +261,7 @@ class SupportGraph:
         )
         return self._graph.invoke(state)
 
-    async def ainvoke(self, query: str, user_id: str, session_id: str, trace_id: str) -> SupportState:
+    async def ainvoke(self, query: str, user_id: str, session_id: str, trace_id: str, image_base64: str = "") -> SupportState:
         """Async invocation — returns final state."""
         import uuid
         state = make_initial_state(
@@ -266,10 +269,11 @@ class SupportGraph:
             user_id=user_id,
             session_id=session_id,
             trace_id=trace_id or str(uuid.uuid4()),
+            image_base64=image_base64,
         )
         return await self._graph.ainvoke(state)
 
-    async def astream(self, query: str, user_id: str, session_id: str, trace_id: str):
+    async def astream(self, query: str, user_id: str, session_id: str, trace_id: str, image_base64: str = ""):
         """Async streaming — yields node outputs as they complete."""
         import uuid
         state = make_initial_state(
@@ -277,6 +281,7 @@ class SupportGraph:
             user_id=user_id,
             session_id=session_id,
             trace_id=trace_id or str(uuid.uuid4()),
+            image_base64=image_base64,
         )
         async for chunk in self._graph.astream(state):
             yield chunk

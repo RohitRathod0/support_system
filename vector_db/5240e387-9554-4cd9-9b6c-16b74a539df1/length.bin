@@ -1,1 +1,7 @@
-invalid type: string "POLICY QUICK REFERENCE:\n\nREFUND_LIMITS:\n  - full_refund: 30 days from purchase\n  - partial_refund: 31-60 days, up to 50% for service issues\n  - no_refund: After 60 days or digital products after access\n  - agent_max: $100 without manager approval\n  - manager_max: $500 without CFO approval\n\nRESPONSE_SLA:\n  - critical: 1 hour\n  - high: 4 hours\n  - vip: 4 hours\nÿÿÿÿ
+PROCEDURE: Refund Processing Steps
+  1. Verify purchase date â€” must be within 30 days for full refund
+  2. Confirm refund amount â€” over $100 needs manager approval
+  3. Check if product was downloaded (non-refundable if digital)
+  4. Submit refund via billing portal with case ID
+  5. Customer receives refund in 5-7 business days
+  6. For amounts over $500, escalate to manager immediatelyÿÿÿÿÿÿ

@@ -163,6 +163,7 @@ async def _run_pipeline(
             user_id=user_id,
             session_id=session_id,
             trace_id=trace_id,
+            image_base64=chat_req.image_base64,
         )
     except Exception as e:
         # Fallback engine handles all pipeline failures
@@ -380,7 +381,9 @@ async def chat_stream(chat_req: ChatRequest, request: Request) -> StreamingRespo
 
         node_messages = {
             "classify_ticket":        "🏷️  Classifying ticket (urgency, category, sentiment)...",
+            "detect_contradictions":  "🔍 Checking for customer profile contradictions...",
             "manage_session":         "👤 Loading customer session & context...",
+            "validate_image":         "📸 Cross-validating uploaded product image...",
             "parallel_retrieval":     "⚡ PARALLEL: KB + Policy + Web search running simultaneously...",
             "fuse_information":       "🔗 Fusing information from all sources...",
             "generate_solution":      "💡 Generating solution package...",
@@ -393,7 +396,7 @@ async def chat_stream(chat_req: ChatRequest, request: Request) -> StreamingRespo
 
         try:
             final_state = None
-            async for chunk in graph.astream(query, user_id, session_id, trace_id):
+            async for chunk in graph.astream(query, user_id, session_id, trace_id, chat_req.image_base64):
                 for node_name, node_output in chunk.items():
                     if node_name == "__end__":
                         continue
@@ -419,7 +422,7 @@ async def chat_stream(chat_req: ChatRequest, request: Request) -> StreamingRespo
                     final_state = node_output if node_output else final_state
 
             # Get final state from last ainvoke
-            complete_state = await graph.ainvoke(query, user_id, session_id, trace_id)
+            complete_state = await graph.ainvoke(query, user_id, session_id, trace_id, chat_req.image_base64)
             raw_response = complete_state.get("final_response", "")
             out_guard = guard.validate_output(raw_response)
             clean_response = out_guard["sanitized_response"]
@@ -472,6 +475,7 @@ async def chat_stream(chat_req: ChatRequest, request: Request) -> StreamingRespo
                     "errors": complete_state.get("errors", []),
                     "trigger_video": complete_state.get("defect_language_detected", False),
                     "resolution_detected": complete_state.get("resolution_detected", False),
+                    "image_validation_result": complete_state.get("image_validation_result"),
                 }
             })
 
